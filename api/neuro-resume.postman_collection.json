@@ -1,0 +1,844 @@
+{
+  "info": {
+    "_postman_id": "d533f54f-cbbb-4e6f-a541-3e0fe5a42b10",
+    "name": "Neuro Resume API",
+    "description": "Postman collection for the AI Resume Builder backend. Requests cover authentication, user profile, interview sessions, and resume management based on the current FastAPI handlers.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+      {
+        "name": "Health",
+        "request": {
+          "method": "GET",
+          "header": [],
+          "url": {
+            "raw": "{{baseUrl}}/health",
+            "host": [
+              "{{baseUrl}}"
+            ],
+            "path": [
+              "health"
+            ]
+          }
+        },
+        "response": []
+      },
+      {
+        "name": "Auth",
+        "item": [
+          {
+            "name": "Register",
+            "request": {
+              "auth": {
+                "type": "noauth"
+              },
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"username\": \"postman_user_{{$timestamp}}\",\n  \"email\": \"postman_{{$timestamp}}@example.com\",\n  \"password\": \"{{registerPassword}}\",\n  \"first_name\": \"Postman\",\n  \"last_name\": \"User\"\n}"
+              },
+              "url": {
+                "raw": "{{baseUrl}}/v1/auth/register",
+                "host": [
+                  "{{baseUrl}}"
+                ],
+                "path": [
+                  "v1",
+                  "auth",
+                  "register"
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                    "  const data = pm.response.json();",
+                    "  pm.collectionVariables.set('token', data.token);",
+                    "  pm.collectionVariables.set('userId', data.user.id);",
+                    "  pm.collectionVariables.set('username', data.user.username);",
+                    "  pm.collectionVariables.set('password', pm.variables.get('registerPassword'));",
+                    "}",
+                    "pm.test('Register created user', function () {",
+                    "  pm.response.to.have.status(201);",
+                    "});"
+                  ]
+                }
+              }
+            ],
+            "response": []
+          },
+          {
+            "name": "Login",
+            "request": {
+              "auth": {
+                "type": "noauth"
+              },
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+              },
+              "url": {
+                "raw": "{{baseUrl}}/v1/auth/login",
+                "host": [
+                  "{{baseUrl}}"
+                ],
+                "path": [
+                  "v1",
+                  "auth",
+                  "login"
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                    "  const data = pm.response.json();",
+                    "  pm.collectionVariables.set('token', data.token);",
+                    "}",
+                    "pm.test('Login succeeded', function () {",
+                    "  pm.response.to.have.status(200);",
+                    "});"
+                  ]
+                }
+              }
+            ],
+            "response": []
+          },
+          {
+            "name": "Refresh Token",
+            "request": {
+              "method": "POST",
+              "header": [],
+              "url": {
+                "raw": "{{baseUrl}}/v1/auth/refresh",
+                "host": [
+                  "{{baseUrl}}"
+                ],
+                "path": [
+                  "v1",
+                  "auth",
+                  "refresh"
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                    "  const data = pm.response.json();",
+                    "  pm.collectionVariables.set('token', data.token);",
+                    "}",
+                    "pm.test('Token refreshed', function () {",
+                    "  pm.response.to.have.status(200);",
+                    "});"
+                  ]
+                }
+              }
+            ],
+            "response": []
+          },
+          {
+            "name": "Logout",
+            "request": {
+              "method": "POST",
+              "header": [],
+              "url": {
+                "raw": "{{baseUrl}}/v1/auth/logout",
+                "host": [
+                  "{{baseUrl}}"
+                ],
+                "path": [
+                  "v1",
+                  "auth",
+                  "logout"
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test('Logout returned 204', function () {",
+                    "  pm.response.to.have.status(204);",
+                    "});"
+                  ]
+                }
+              }
+            ],
+            "response": []
+          }
+        ]
+      },
+      {
+        "name": "User",
+        "item": [
+          {
+            "name": "Get Profile",
+            "request": {
+              "method": "GET",
+              "header": [],
+              "url": {
+                "raw": "{{baseUrl}}/v1/user/profile",
+                "host": [
+                  "{{baseUrl}}"
+                ],
+                "path": [
+                  "v1",
+                  "user",
+                  "profile"
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test('Profile fetched', function () {",
+                    "  pm.response.to.have.status(200);",
+                    "  const userId = pm.collectionVariables.get('userId');",
+                    "  if (userId) {",
+                    "    const data = pm.response.json();",
+                    "    pm.expect(data.id).to.eql(userId);",
+                    "  }",
+                    "});"
+                  ]
+                }
+              }
+            ],
+            "response": []
+          },
+          {
+            "name": "Update Profile",
+            "request": {
+              "method": "PATCH",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"firstName\": \"Postman\",\n  \"lastName\": \"User\",\n  \"phone\": \"+1-555-1234\",\n  \"location\": \"Remote\",\n  \"fullName\": \"Postman User\"\n}"
+              },
+              "url": {
+                "raw": "{{baseUrl}}/v1/user/profile",
+                "host": [
+                  "{{baseUrl}}"
+                ],
+                "path": [
+                  "v1",
+                  "user",
+                  "profile"
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test('Profile updated', function () {",
+                    "  pm.response.to.have.status(200);",
+                    "});"
+                  ]
+                }
+              }
+            ],
+            "response": []
+          },
+          {
+            "name": "Change Password",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"currentPassword\": \"{{password}}\",\n  \"newPassword\": \"{{newPassword}}\"\n}"
+              },
+              "url": {
+                "raw": "{{baseUrl}}/v1/user/change-password",
+                "host": [
+                  "{{baseUrl}}"
+                ],
+                "path": [
+                  "v1",
+                  "user",
+                  "change-password"
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test('Password changed', function () {",
+                    "  pm.response.to.have.status(204);",
+                    "});",
+                    "pm.collectionVariables.set('password', pm.variables.get('newPassword'));"
+                  ]
+                }
+              }
+            ],
+            "response": []
+          }
+        ]
+      },
+      {
+        "name": "Interview",
+        "item": [
+          {
+            "name": "List Sessions",
+            "request": {
+              "method": "GET",
+              "header": [],
+              "url": {
+                "raw": "{{baseUrl}}/v1/interview/sessions",
+                "host": [
+                  "{{baseUrl}}"
+                ],
+                "path": [
+                  "v1",
+                  "interview",
+                  "sessions"
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test('Sessions listed', function () {",
+                    "  pm.response.to.have.status(200);",
+                    "});"
+                  ]
+                }
+              }
+            ],
+            "response": []
+          },
+          {
+            "name": "Create Session",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"language\": \"en\"\n}"
+              },
+              "url": {
+                "raw": "{{baseUrl}}/v1/interview/sessions",
+                "host": [
+                  "{{baseUrl}}"
+                ],
+                "path": [
+                  "v1",
+                  "interview",
+                  "sessions"
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                    "  const data = pm.response.json();",
+                    "  pm.collectionVariables.set('sessionId', data.id);",
+                    "}",
+                    "pm.test('Session created', function () {",
+                    "  pm.response.to.have.status(201);",
+                    "});"
+                  ]
+                }
+              }
+            ],
+            "response": []
+          },
+          {
+            "name": "Get Session",
+            "request": {
+              "method": "GET",
+              "header": [],
+              "url": {
+                "raw": "{{baseUrl}}/v1/interview/sessions/{{sessionId}}",
+                "host": [
+                  "{{baseUrl}}"
+                ],
+                "path": [
+                  "v1",
+                  "interview",
+                  "sessions",
+                  "{{sessionId}}"
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test('Session fetched', function () {",
+                    "  pm.response.to.have.status(200);",
+                    "});"
+                  ]
+                }
+              }
+            ],
+            "response": []
+          },
+          {
+            "name": "Get Messages",
+            "request": {
+              "method": "GET",
+              "header": [],
+              "url": {
+                "raw": "{{baseUrl}}/v1/interview/sessions/{{sessionId}}/messages",
+                "host": [
+                  "{{baseUrl}}"
+                ],
+                "path": [
+                  "v1",
+                  "interview",
+                  "sessions",
+                  "{{sessionId}}",
+                  "messages"
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test('Messages fetched', function () {",
+                    "  pm.response.to.have.status(200);",
+                    "});"
+                  ]
+                }
+              }
+            ],
+            "response": []
+          },
+          {
+            "name": "Send Message",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"message\": \"I have 5 years of Python experience.\"\n}"
+              },
+              "url": {
+                "raw": "{{baseUrl}}/v1/interview/sessions/{{sessionId}}/messages",
+                "host": [
+                  "{{baseUrl}}"
+                ],
+                "path": [
+                  "v1",
+                  "interview",
+                  "sessions",
+                  "{{sessionId}}",
+                  "messages"
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test('Message sent', function () {",
+                    "  pm.response.to.have.status(200);",
+                    "});"
+                  ]
+                }
+              }
+            ],
+            "response": []
+          },
+          {
+            "name": "Complete Session",
+            "request": {
+              "method": "POST",
+              "header": [],
+              "url": {
+                "raw": "{{baseUrl}}/v1/interview/sessions/{{sessionId}}/complete",
+                "host": [
+                  "{{baseUrl}}"
+                ],
+                "path": [
+                  "v1",
+                  "interview",
+                  "sessions",
+                  "{{sessionId}}",
+                  "complete"
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                    "  const data = pm.response.json();",
+                    "  if (data.resumeId) {",
+                    "    pm.collectionVariables.set('resumeId', data.resumeId);",
+                    "  }",
+                    "}",
+                    "pm.test('Session completed', function () {",
+                    "  pm.response.to.have.status(200);",
+                    "});"
+                  ]
+                }
+              }
+            ],
+            "response": []
+          },
+          {
+            "name": "Delete Session",
+            "request": {
+              "method": "DELETE",
+              "header": [],
+              "url": {
+                "raw": "{{baseUrl}}/v1/interview/sessions/{{sessionId}}",
+                "host": [
+                  "{{baseUrl}}"
+                ],
+                "path": [
+                  "v1",
+                  "interview",
+                  "sessions",
+                  "{{sessionId}}"
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test('Session deleted', function () {",
+                    "  pm.response.to.have.status(204);",
+                    "});"
+                  ]
+                }
+              }
+            ],
+            "response": []
+          }
+        ]
+      },
+      {
+        "name": "Resume",
+        "item": [
+          {
+            "name": "List Resumes",
+            "request": {
+              "method": "GET",
+              "header": [],
+              "url": {
+                "raw": "{{baseUrl}}/v1/resumes",
+                "host": [
+                  "{{baseUrl}}"
+                ],
+                "path": [
+                  "v1",
+                  "resumes"
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test('Resumes listed', function () {",
+                    "  pm.response.to.have.status(200);",
+                    "});"
+                  ]
+                }
+              }
+            ],
+            "response": []
+          },
+          {
+            "name": "Create Resume",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"session_id\": \"{{sessionId}}\",\n  \"title\": \"Manual Resume\",\n  \"format\": \"pdf\"\n}"
+              },
+              "url": {
+                "raw": "{{baseUrl}}/v1/resumes",
+                "host": [
+                  "{{baseUrl}}"
+                ],
+                "path": [
+                  "v1",
+                  "resumes"
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "if (pm.response.code >= 200 && pm.response.code < 300) {",
+                    "  const data = pm.response.json();",
+                    "  pm.collectionVariables.set('resumeId', data.id);",
+                    "}",
+                    "pm.test('Resume created', function () {",
+                    "  pm.response.to.have.status(201);",
+                    "});"
+                  ]
+                }
+              }
+            ],
+            "response": []
+          },
+          {
+            "name": "Get Resume",
+            "request": {
+              "method": "GET",
+              "header": [],
+              "url": {
+                "raw": "{{baseUrl}}/v1/resumes/{{resumeId}}",
+                "host": [
+                  "{{baseUrl}}"
+                ],
+                "path": [
+                  "v1",
+                  "resumes",
+                  "{{resumeId}}"
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test('Resume fetched', function () {",
+                    "  pm.response.to.have.status(200);",
+                    "});"
+                  ]
+                }
+              }
+            ],
+            "response": []
+          },
+          {
+            "name": "Download Resume",
+            "request": {
+              "method": "GET",
+              "header": [],
+              "url": {
+                "raw": "{{baseUrl}}/v1/resumes/{{resumeId}}/download?format={{downloadFormat}}",
+                "host": [
+                  "{{baseUrl}}"
+                ],
+                "path": [
+                  "v1",
+                  "resumes",
+                  "{{resumeId}}",
+                  "download"
+                ],
+                "query": [
+                  {
+                    "key": "format",
+                    "value": "{{downloadFormat}}"
+                  }
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test('Resume downloaded', function () {",
+                    "  pm.response.to.have.status(200);",
+                    "});"
+                  ]
+                }
+              }
+            ],
+            "response": []
+          },
+          {
+            "name": "Regenerate Resume",
+            "request": {
+              "method": "POST",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "body": {
+                "mode": "raw",
+                "raw": "{\n  \"template\": \"modern\",\n  \"language\": \"en\"\n}"
+              },
+              "url": {
+                "raw": "{{baseUrl}}/v1/resumes/{{resumeId}}/regenerate",
+                "host": [
+                  "{{baseUrl}}"
+                ],
+                "path": [
+                  "v1",
+                  "resumes",
+                  "{{resumeId}}",
+                  "regenerate"
+                ]
+              }
+            },
+            "event": [
+              {
+                "listen": "test",
+                "script": {
+                  "type": "text/javascript",
+                  "exec": [
+                    "pm.test('Resume regenerated', function () {",
+                    "  pm.response.to.have.status(200);",
+                    "});"
+                  ]
+                }
+              }
+            ],
+            "response": []
+          }
+        ]
+      }
+    ],
+    "variable": [
+      {
+        "key": "baseUrl",
+        "value": "http://localhost:8000",
+        "type": "string"
+      },
+      {
+        "key": "registerPassword",
+        "value": "Test12345!",
+        "type": "string"
+      },
+      {
+        "key": "newPassword",
+        "value": "BetterPass123!",
+        "type": "string"
+      },
+      {
+        "key": "downloadFormat",
+        "value": "txt",
+        "type": "string"
+      },
+      {
+        "key": "token",
+        "value": "",
+        "type": "string"
+      },
+      {
+        "key": "username",
+        "value": "",
+        "type": "string"
+      },
+      {
+        "key": "password",
+        "value": "",
+        "type": "string"
+      },
+      {
+        "key": "userId",
+        "value": "",
+        "type": "string"
+      },
+      {
+        "key": "sessionId",
+        "value": "",
+        "type": "string"
+      },
+      {
+        "key": "resumeId",
+        "value": "",
+        "type": "string"
+      }
+    ]
+  }
