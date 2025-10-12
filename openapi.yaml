@@ -1,0 +1,1195 @@
+openapi: 3.0.3
+info:
+  title: Neuro Resume API
+  description: |
+    API для приложения создания резюме с помощью AI-интервью.
+    Приложение проводит интерактивное интервью с пользователем,
+    собирает информацию о его опыте и навыках, а затем генерирует
+    профессиональное резюме.
+  version: 1.0.0
+  contact:
+    name: Neuro Resume Team
+    email: support@neuroresume.com
+
+servers:
+  - url: https://api.neuroresume.com/v1
+    description: Production server
+  - url: https://staging-api.neuroresume.com/v1
+    description: Staging server
+  - url: http://localhost:3000/v1
+    description: Local development server
+
+tags:
+  - name: auth
+    description: Аутентификация и авторизация
+  - name: interview
+    description: Управление интервью-сессиями
+  - name: resume
+    description: Генерация и управление резюме
+  - name: user
+    description: Управление профилем пользователя
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - auth
+      summary: Вход в систему
+      description: Аутентификация пользователя по логину и паролю
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - password
+              properties:
+                username:
+                  type: string
+                  example: admin
+                  minLength: 3
+                  maxLength: 50
+                password:
+                  type: string
+                  format: password
+                  example: password
+                  minLength: 6
+      responses:
+        '200':
+          description: Успешная аутентификация
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: JWT токен для авторизации
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  user:
+                    $ref: '#/components/schemas/User'
+                  expiresIn:
+                    type: integer
+                    description: Время жизни токена в секундах
+                    example: 86400
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /auth/register:
+    post:
+      tags:
+        - auth
+      summary: Регистрация нового пользователя
+      description: Создание нового аккаунта пользователя
+      operationId: register
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - username
+                - email
+                - password
+              properties:
+                username:
+                  type: string
+                  example: john_doe
+                  minLength: 3
+                  maxLength: 50
+                email:
+                  type: string
+                  format: email
+                  example: john@example.com
+                password:
+                  type: string
+                  format: password
+                  minLength: 6
+                firstName:
+                  type: string
+                  example: John
+                lastName:
+                  type: string
+                  example: Doe
+      responses:
+        '201':
+          description: Пользователь успешно зарегистрирован
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  user:
+                    $ref: '#/components/schemas/User'
+        '409':
+          description: Пользователь с таким email или username уже существует
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /auth/logout:
+    post:
+      tags:
+        - auth
+      summary: Выход из системы
+      description: Инвалидация токена пользователя
+      operationId: logout
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Успешный выход из системы
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/refresh:
+    post:
+      tags:
+        - auth
+      summary: Обновление токена
+      description: Получение нового JWT токена
+      operationId: refreshToken
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Токен успешно обновлен
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  expiresIn:
+                    type: integer
+                    example: 86400
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /interview/sessions:
+    get:
+      tags:
+        - interview
+      summary: Получить список сессий интервью
+      description: Возвращает все интервью-сессии текущего пользователя
+      operationId: getInterviewSessions
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          description: Фильтр по статусу сессии
+          schema:
+            type: string
+            enum: [in_progress, completed, abandoned]
+        - name: limit
+          in: query
+          description: Количество записей на странице
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          description: Смещение для пагинации
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Список сессий успешно получен
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/InterviewSession'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    post:
+      tags:
+        - interview
+      summary: Создать новую сессию интервью
+      description: Начать новое интервью для создания резюме
+      operationId: createInterviewSession
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                language:
+                  type: string
+                  description: Язык интервью
+                  enum: [ru, en]
+                  default: ru
+                  example: ru
+      responses:
+        '201':
+          description: Сессия успешно создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InterviewSession'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /interview/sessions/{sessionId}:
+    get:
+      tags:
+        - interview
+      summary: Получить информацию о сессии
+      description: Детальная информация об интервью-сессии
+      operationId: getInterviewSession
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          description: ID сессии интервью
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Информация о сессии
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InterviewSession'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    delete:
+      tags:
+        - interview
+      summary: Удалить сессию интервью
+      description: Удаление сессии и всех связанных данных
+      operationId: deleteInterviewSession
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          description: ID сессии интервью
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Сессия успешно удалена
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /interview/sessions/{sessionId}/messages:
+    get:
+      tags:
+        - interview
+      summary: Получить историю сообщений
+      description: Все сообщения в рамках интервью-сессии
+      operationId: getSessionMessages
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          description: ID сессии интервью
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: История сообщений
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessionId:
+                    type: string
+                    format: uuid
+                  messages:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Message'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    post:
+      tags:
+        - interview
+      summary: Отправить сообщение в интервью
+      description: Отправка ответа пользователя и получение следующего вопроса от AI
+      operationId: sendMessage
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          description: ID сессии интервью
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - message
+              properties:
+                message:
+                  type: string
+                  description: Текст ответа пользователя
+                  example: Я работал разработчиком в компании X более 3 лет
+                  minLength: 1
+                  maxLength: 5000
+      responses:
+        '200':
+          description: Сообщение отправлено, получен ответ AI
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  userMessage:
+                    $ref: '#/components/schemas/Message'
+                  aiResponse:
+                    $ref: '#/components/schemas/Message'
+                  progress:
+                    type: object
+                    description: Прогресс заполнения резюме
+                    properties:
+                      percentage:
+                        type: integer
+                        minimum: 0
+                        maximum: 100
+                        example: 45
+                      completedSections:
+                        type: array
+                        items:
+                          type: string
+                        example: [personal_info, work_experience]
+                      currentSection:
+                        type: string
+                        example: skills
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /interview/sessions/{sessionId}/complete:
+    post:
+      tags:
+        - interview
+      summary: Завершить интервью
+      description: Пометить интервью как завершенное и начать генерацию резюме
+      operationId: completeInterview
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          description: ID сессии интервью
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Интервью завершено
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session:
+                    $ref: '#/components/schemas/InterviewSession'
+                  resumeId:
+                    type: string
+                    format: uuid
+                    description: ID созданного резюме
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Интервью уже завершено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /resumes:
+    get:
+      tags:
+        - resume
+      summary: Получить список резюме
+      description: Все резюме текущего пользователя
+      operationId: getResumes
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Список резюме
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Resume'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /resumes/{resumeId}:
+    get:
+      tags:
+        - resume
+      summary: Получить резюме
+      description: Детальная информация о резюме
+      operationId: getResume
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: resumeId
+          in: path
+          required: true
+          description: ID резюме
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Резюме успешно получено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resume'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+    patch:
+      tags:
+        - resume
+      summary: Обновить резюме
+      description: Редактирование данных резюме
+      operationId: updateResume
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: resumeId
+          in: path
+          required: true
+          description: ID резюме
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResumeData'
+      responses:
+        '200':
+          description: Резюме успешно обновлено
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resume'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+    delete:
+      tags:
+        - resume
+      summary: Удалить резюме
+      description: Удаление резюме
+      operationId: deleteResume
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: resumeId
+          in: path
+          required: true
+          description: ID резюме
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Резюме успешно удалено
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /resumes/{resumeId}/download:
+    get:
+      tags:
+        - resume
+      summary: Скачать резюме
+      description: Получить резюме в выбранном формате
+      operationId: downloadResume
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: resumeId
+          in: path
+          required: true
+          description: ID резюме
+          schema:
+            type: string
+            format: uuid
+        - name: format
+          in: query
+          required: true
+          description: Формат файла
+          schema:
+            type: string
+            enum: [pdf, docx, txt]
+            example: pdf
+      responses:
+        '200':
+          description: Файл резюме
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema:
+                type: string
+                format: binary
+            text/plain:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /resumes/{resumeId}/regenerate:
+    post:
+      tags:
+        - resume
+      summary: Перегенерировать резюме
+      description: Создать новую версию резюме на основе тех же данных интервью
+      operationId: regenerateResume
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: resumeId
+          in: path
+          required: true
+          description: ID резюме
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                template:
+                  type: string
+                  description: Шаблон для генерации
+                  enum: [modern, classic, minimal, creative]
+                  example: modern
+                language:
+                  type: string
+                  enum: [ru, en]
+                  example: ru
+      responses:
+        '200':
+          description: Резюме перегенерировано
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resume'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /user/profile:
+    get:
+      tags:
+        - user
+      summary: Получить профиль пользователя
+      description: Информация о текущем пользователе
+      operationId: getUserProfile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Профиль пользователя
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+    patch:
+      tags:
+        - user
+      summary: Обновить профиль
+      description: Редактирование информации профиля
+      operationId: updateUserProfile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                firstName:
+                  type: string
+                  example: John
+                lastName:
+                  type: string
+                  example: Doe
+                email:
+                  type: string
+                  format: email
+                  example: john@example.com
+                phone:
+                  type: string
+                  example: +7 (999) 123-45-67
+      responses:
+        '200':
+          description: Профиль обновлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /user/change-password:
+    post:
+      tags:
+        - user
+      summary: Изменить пароль
+      description: Смена пароля пользователя
+      operationId: changePassword
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - currentPassword
+                - newPassword
+              properties:
+                currentPassword:
+                  type: string
+                  format: password
+                newPassword:
+                  type: string
+                  format: password
+                  minLength: 6
+      responses:
+        '204':
+          description: Пароль успешно изменен
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT токен, полученный при авторизации
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 123e4567-e89b-12d3-a456-426614174000
+        username:
+          type: string
+          example: john_doe
+        email:
+          type: string
+          format: email
+          example: john@example.com
+        firstName:
+          type: string
+          example: John
+        lastName:
+          type: string
+          example: Doe
+        phone:
+          type: string
+          nullable: true
+          example: +7 (999) 123-45-67
+        createdAt:
+          type: string
+          format: date-time
+          example: 2025-01-15T10:30:00Z
+        updatedAt:
+          type: string
+          format: date-time
+          example: 2025-10-12T14:20:00Z
+
+    InterviewSession:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 456e7890-e89b-12d3-a456-426614174111
+        userId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [in_progress, completed, abandoned]
+          example: in_progress
+        language:
+          type: string
+          enum: [ru, en]
+          example: ru
+        progress:
+          type: object
+          properties:
+            percentage:
+              type: integer
+              minimum: 0
+              maximum: 100
+              example: 60
+            completedSections:
+              type: array
+              items:
+                type: string
+              example: [personal_info, work_experience, education]
+            currentSection:
+              type: string
+              example: skills
+        messageCount:
+          type: integer
+          example: 15
+        createdAt:
+          type: string
+          format: date-time
+          example: 2025-10-12T09:00:00Z
+        updatedAt:
+          type: string
+          format: date-time
+          example: 2025-10-12T10:30:00Z
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 789e0123-e89b-12d3-a456-426614174222
+        sessionId:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [user, ai]
+          example: ai
+        content:
+          type: string
+          example: Расскажите, пожалуйста, о вашем последнем месте работы
+        metadata:
+          type: object
+          nullable: true
+          description: Дополнительные данные сообщения
+          properties:
+            extractedData:
+              type: object
+              description: Извлеченные из ответа данные для резюме
+        createdAt:
+          type: string
+          format: date-time
+          example: 2025-10-12T10:15:00Z
+
+    Resume:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 321e6543-e89b-12d3-a456-426614174333
+        userId:
+          type: string
+          format: uuid
+        sessionId:
+          type: string
+          format: uuid
+          description: ID интервью-сессии, из которой создано резюме
+        title:
+          type: string
+          example: Senior Frontend Developer
+        template:
+          type: string
+          enum: [modern, classic, minimal, creative]
+          example: modern
+        language:
+          type: string
+          enum: [ru, en]
+          example: ru
+        data:
+          $ref: '#/components/schemas/ResumeData'
+        version:
+          type: integer
+          description: Версия резюме (для отслеживания изменений)
+          example: 3
+        createdAt:
+          type: string
+          format: date-time
+          example: 2025-10-12T11:00:00Z
+        updatedAt:
+          type: string
+          format: date-time
+          example: 2025-10-12T12:30:00Z
+
+    ResumeData:
+      type: object
+      properties:
+        personalInfo:
+          type: object
+          properties:
+            firstName:
+              type: string
+              example: Иван
+            lastName:
+              type: string
+              example: Петров
+            email:
+              type: string
+              format: email
+              example: ivan@example.com
+            phone:
+              type: string
+              example: +7 (999) 123-45-67
+            location:
+              type: string
+              example: Москва, Россия
+            links:
+              type: array
+              items:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    enum: [linkedin, github, telegram, website, portfolio]
+                  url:
+                    type: string
+                    format: uri
+              example:
+                - type: github
+                  url: https://github.com/johndoe
+                - type: linkedin
+                  url: https://linkedin.com/in/johndoe
+        summary:
+          type: string
+          description: Краткое описание профессионала
+          example: Опытный Frontend разработчик с 5+ годами опыта...
+        workExperience:
+          type: array
+          items:
+            type: object
+            properties:
+              company:
+                type: string
+                example: Tech Corp
+              position:
+                type: string
+                example: Senior Frontend Developer
+              location:
+                type: string
+                example: Москва
+              startDate:
+                type: string
+                format: date
+                example: 2020-03
+              endDate:
+                type: string
+                format: date
+                nullable: true
+                example: null
+              current:
+                type: boolean
+                example: true
+              description:
+                type: string
+                example: Разработка и поддержка веб-приложений...
+              achievements:
+                type: array
+                items:
+                  type: string
+                example:
+                  - Увеличил производительность на 40%
+                  - Внедрил CI/CD pipeline
+        education:
+          type: array
+          items:
+            type: object
+            properties:
+              institution:
+                type: string
+                example: МГУ
+              degree:
+                type: string
+                example: Бакалавр
+              field:
+                type: string
+                example: Информатика
+              startDate:
+                type: string
+                format: date
+                example: 2015-09
+              endDate:
+                type: string
+                format: date
+                example: 2019-06
+              gpa:
+                type: number
+                format: float
+                nullable: true
+                example: 4.5
+        skills:
+          type: object
+          properties:
+            technical:
+              type: array
+              items:
+                type: string
+              example: [React, TypeScript, Node.js, PostgreSQL]
+            soft:
+              type: array
+              items:
+                type: string
+              example: [Командная работа, Лидерство, Коммуникация]
+            languages:
+              type: array
+              items:
+                type: object
+                properties:
+                  language:
+                    type: string
+                    example: Английский
+                  level:
+                    type: string
+                    enum: [A1, A2, B1, B2, C1, C2, native]
+                    example: C1
+        certifications:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                example: AWS Certified Developer
+              issuer:
+                type: string
+                example: Amazon Web Services
+              date:
+                type: string
+                format: date
+                example: 2023-05
+              expirationDate:
+                type: string
+                format: date
+                nullable: true
+              credentialId:
+                type: string
+                nullable: true
+        projects:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+                example: E-commerce Platform
+              description:
+                type: string
+              technologies:
+                type: array
+                items:
+                  type: string
+              url:
+                type: string
+                format: uri
+                nullable: true
+              startDate:
+                type: string
+                format: date
+              endDate:
+                type: string
+                format: date
+                nullable: true
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Общее количество записей
+          example: 150
+        limit:
+          type: integer
+          description: Количество записей на странице
+          example: 20
+        offset:
+          type: integer
+          description: Текущее смещение
+          example: 0
+        hasMore:
+          type: boolean
+          description: Есть ли еще записи
+          example: true
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: Validation failed
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                    example: email
+                  message:
+                    type: string
+                    example: Invalid email format
+
+  responses:
+    Unauthorized:
+      description: Не авторизован
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: UNAUTHORIZED
+              message: Authentication required
+
+    NotFound:
+      description: Ресурс не найден
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: NOT_FOUND
+              message: Resource not found
+
+    ValidationError:
+      description: Ошибка валидации
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error:
+              code: VALIDATION_ERROR
+              message: Validation failed
+              details:
+                - field: email
+                  message: Invalid email format
+                - field: password
+                  message: Password must be at least 6 characters
