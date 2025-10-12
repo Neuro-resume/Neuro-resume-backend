@@ -31,6 +31,16 @@ alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
+## Docker
+
+```bash
+docker compose up --build
+```
+
+-   Сервис `db` поднимает PostgreSQL и автоматически инициализирует схему.
+-   Сервис `backend` применяет Alembic миграции и стартует FastAPI на `http://localhost:8000`.
+-   Настройте переменные через `.env` или переопределите значения (`JWT_SECRET`, `CORS_ORIGINS`, и т.д.).
+
 ## Makefile задачи
 
 ```bash
