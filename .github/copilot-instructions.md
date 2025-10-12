@@ -1,4 +1,4 @@
-# Нейро-резюме через чат - AI Resume Builder
+# Нейро-резюме через чат — AI Resume Builder (Python)
 
 ## Описание проекта
 
@@ -10,9 +10,10 @@
 
 ### Backend
 
--   Go (любой HTTP-сервер: gorilla/mux, chi, или стандартный net/http)
+-   Python 3.11+
+-   FastAPI (или Flask для MVP, но предпочтительно FastAPI)
 -   PostgreSQL для хранения данных
--   pgx/sqlx для работы с БД
+-   SQLAlchemy (или asyncpg для асинхронного доступа)
 -   MCP (Model Context Protocol) для интеграции с нейронкой
 
 ### Frontend
@@ -22,16 +23,16 @@
 
 ### API
 
--   OpenAPI спецификация для всех endpoints
+-   OpenAPI спецификация для всех endpoints (FastAPI генерирует автоматически)
 -   RESTful API design principles
 
 ### Инструменты разработки
 
--   golangci-lint для комплексной проверки кода
--   gofmt для форматирования
--   go vet для статического анализа
--   gosec для проверки безопасности
--   golang-migrate для миграций БД
+-   black для форматирования
+-   flake8 и mypy для линтинга и типизации
+-   pytest для тестирования
+-   pre-commit для автопроверок
+-   alembic для миграций БД
 
 ## Структура проекта
 
@@ -41,90 +42,73 @@
 │   └── copilot-instructions.md     # Этот файл
 ├── api/
 │   └── openapi.yaml                # OpenAPI спецификация
-├── cmd/
-│   └── server/
-│       └── main.go                 # Точка входа приложения
-├── internal/
-│   ├── handlers/                   # HTTP handlers (слой presentation)
-│   │   ├── profile.go
-│   │   ├── session.go
-│   │   └── resume.go
-│   ├── services/                   # Бизнес-логика (слой domain)
-│   │   ├── profile_service.go
-│   │   ├── session_service.go
-│   │   ├── resume_service.go
-│   │   └── mcp_client.go
-│   ├── repository/                 # Слой работы с БД (data access)
-│   │   ├── profile_repo.go
-│   │   ├── session_repo.go
-│   │   └── resume_repo.go
-│   └── models/                     # Модели данных
-│       ├── profile.go
-│       ├── session.go
-│       ├── question.go
-│       └── resume.go
-├── migrations/                     # SQL миграции
-│   ├── 001_create_profiles.up.sql
-│   └── 001_create_profiles.down.sql
-├── pkg/                            # Публичные пакеты (если нужны)
+├── app/
+│   ├── main.py                     # Точка входа приложения (FastAPI)
+│   ├── models/                     # Pydantic/SQLAlchemy модели
+│   ├── db/                         # Работа с БД
+│   ├── repository/                 # Слой доступа к данным
+│   ├── services/                   # Бизнес-логика
+│   ├── handlers/                   # HTTP endpoints
+│   └── mcp/                        # MCP интеграция
+├── migrations/                     # Alembic миграции
 ├── scripts/                        # Скрипты для разработки
 │   ├── setup.sh
 │   └── test.sh
-├── go.mod
-├── go.sum
-└── README.md
+├── requirements.txt                # Зависимости
+├── pyproject.toml                  # Настройки форматирования и линтинга
+├── README.md
+└── .env.example                    # Пример env-файла
 ```
 
 ## Стандарты кодирования
 
-### Go конвенции
+### Python конвенции
 
--   Всегда запускать `gofmt` перед коммитом
--   Использовать `golangci-lint run` для проверки кода
--   Следовать стандартному Go project layout
--   CamelCase для экспортируемых функций, camelCase для приватных
+-   Всегда запускать `black` перед коммитом
+-   Использовать `flake8` и `mypy` для проверки кода
+-   Следовать стандартному Python project layout (см. выше)
+-   snake_case для функций и переменных
 -   Короткие, описательные имена переменных
--   Обязательная обработка ошибок - никогда не игнорировать `err`
--   context.Context для всех HTTP handlers и операций с БД
--   Структурированное логирование (например, slog из стандартной библиотеки)
+-   Обязательная обработка исключений — не игнорировать ошибки
+-   Использовать логирование через стандартный модуль `logging`
+-   Для асинхронных операций — использовать `async def` и `await`
 
 ### Обработка ошибок
 
-```go
-// ПРАВИЛЬНО
-if err != nil {
-    return fmt.Errorf("failed to create profile: %w", err)
-}
+```python
+# ПРАВИЛЬНО
+try:
+    ...
+except Exception as e:
+    logger.error(f"Failed to create profile: {e}")
+    raise
 
-// НЕПРАВИЛЬНО - не игнорировать ошибки
-_ = someFunction()
+# НЕПРАВИЛЬНО — не игнорировать ошибки
+try:
+    some_function()
+except:
+    pass  # нельзя
 ```
 
-### Context usage
+### Работа с контекстом
 
-```go
-// Всегда передавать context
-func (h *Handler) CreateProfile(w http.ResponseWriter, r *http.Request) {
-    ctx := r.Context()
-    // ... использовать ctx для всех операций
-}
-```
+-   Для асинхронных запросов использовать `async`/`await` и dependency injection FastAPI (`Depends`)
 
 ## База данных
 
 ### Основные таблицы
 
--   `profiles` - профили пользователей (имя, email, дата создания)
--   `chat_sessions` - сессии общения с ИИ (связь с профилем, статус, дата)
--   `questions` - заданные вопросы (категория, текст вопроса)
--   `answers` - ответы пользователя (связь с вопросом и сессией)
--   `resumes` - сгенерированные резюме (связь с сессией, формат, содержимое)
+-   `profiles` — профили пользователей (имя, email, дата создания)
+-   `chat_sessions` — сессии общения с ИИ (связь с профилем, статус, дата)
+-   `questions` — заданные вопросы (категория, текст вопроса)
+-   `answers` — ответы пользователя (связь с вопросом и сессией)
+-   `resumes` — сгенерированные резюме (связь с сессией, формат, содержимое)
 
 ### Работа с БД
 
--   Использовать prepared statements для защиты от SQL injection
+-   Использовать SQLAlchemy ORM или asyncpg с параметризацией
 -   Всегда использовать транзакции для связанных операций
--   Использовать context.Context с таймаутами для всех запросов
+-   Конфигурация подключения через переменные окружения
 
 ## API Endpoints (OpenAPI)
 
@@ -153,34 +137,35 @@ GET    /api/v1/resumes/{id}/download       # Скачать резюме (PDF/DO
 
 ## Команды для разработки
 
--   `go mod download` - установка зависимостей
--   `go build ./cmd/server` - сборка приложения
--   `go test ./...` - запуск всех тестов
--   `golangci-lint run` - проверка кода линтерами
--   `go run ./cmd/server` - запуск сервера для разработки
+-   `pip install -r requirements.txt` — установка зависимостей
+-   `alembic upgrade head` — запуск миграций
+-   `pytest` — запуск всех тестов
+-   `black .` — автоформатирование
+-   `flake8 .` — линтинг
+-   `uvicorn app.main:app --reload` — запуск сервера для разработки
 
 ## Правила для AI помощника
 
 ### Общие правила
 
-1. **НИКОГДА не генерировать весь код сразу** - работать только над текущей задачей из roadmap
-2. Всегда включать обработку ошибок
-3. Использовать context.Context для операций с БД и HTTP
-4. Следовать принципам чистой архитектуры (separation of concerns)
-5. Документировать все публичные функции
-6. Писать unit тесты для бизнес-логики
-7. Валидировать входящие данные на уровне handlers
+1. **НИКОГДА не генерировать весь код сразу** — работать только над текущей задачей из roadmap
+2. Всегда включать обработку ошибок и исключений
+3. Использовать dependency injection FastAPI для работы с БД и сервисами
+4. Следовать принципам чистой архитектуры (разделение слоев)
+5. Документировать все публичные функции и классы (docstrings)
+6. Писать unit-тесты для бизнес-логики (pytest)
+7. Валидировать входящие данные через Pydantic-схемы
 
 ### Приоритеты при написании кода
 
 1. Корректность и безопасность
-2. Читаемость и maintainability
+2. Читаемость и поддерживаемость
 3. Производительность (но не в ущерб пунктам 1-2)
 
 ### Паттерны тестирования
 
--   Использовать table-driven tests где возможно
--   Мокировать зависимости (БД, внешние сервисы)
+-   Использовать parametrize в pytest для table-driven tests
+-   Мокировать зависимости (БД, внешние сервисы через unittest.mock или pytest-mock)
 -   Тесты должны быть независимыми друг от друга
 
 ---
@@ -201,41 +186,41 @@ GET    /api/v1/resumes/{id}/download       # Скачать резюме (PDF/DO
 
 **Acceptance Criteria**:
 
--   ✅ Создан go.mod с правильным module name
+-   ✅ Создан requirements.txt с базовыми зависимостями
 -   ✅ Создана структура папок согласно project layout выше
--   ✅ Установлены базовые зависимости (http router, pgx/sqlx)
--   ✅ Создан .gitignore для Go проектов
+-   ✅ Установлен FastAPI, SQLAlchemy, Alembic
+-   ✅ Создан .gitignore для Python проектов
 
 **Затрагиваемые файлы**:
 
--   `go.mod`, `go.sum`
--   Структура папок: `cmd/`, `internal/`, `api/`, `migrations/`, `scripts/`
+-   `requirements.txt`, `pyproject.toml`
+-   Структура папок: `app/`, `api/`, `migrations/`, `scripts/`
 
 ### Задача 1.2: Настройка подключения к PostgreSQL
 
-**Цель**: Реализовать подключение к БД с использованием connection pool
+**Цель**: Реализовать подключение к БД через SQLAlchemy (или asyncpg)
 
 **Acceptance Criteria**:
 
--   ✅ Создан пакет для работы с БД с connection pool
--   ✅ Конфигурация подключения через environment variables
--   ✅ Реализована функция проверки подключения (health check)
--   ✅ Proper error handling и graceful shutdown
+-   ✅ Модуль для работы с БД (engine, session)
+-   ✅ Конфигурация подключения через переменные окружения
+-   ✅ Реализована функция health check
+-   ✅ Обработка ошибок и graceful shutdown
 
 **Затрагиваемые файлы**:
 
--   `internal/db/connection.go`
--   `cmd/server/main.go`
+-   `app/db/connection.py`
+-   `app/main.py`
 
 ### Задача 1.3: Настройка системы миграций
 
-**Цель**: Подключить golang-migrate для управления схемой БД
+**Цель**: Подключить Alembic для управления схемой БД
 
 **Acceptance Criteria**:
 
--   ✅ Установлен golang-migrate
--   ✅ Создан скрипт для запуска миграций
--   ✅ Миграции можно откатывать (up/down)
+-   ✅ Alembic установлен и инициализирован
+-   ✅ Скрипт для запуска миграций
+-   ✅ Миграции можно откатывать (upgrade/downgrade)
 
 **Затрагиваемые файлы**:
 
@@ -634,12 +619,12 @@ GET    /api/v1/resumes/{id}/download       # Скачать резюме (PDF/DO
 
 Перед тем как считать задачу завершенной, проверить:
 
-1. ✅ Код проходит `gofmt`
-2. ✅ Код проходит `golangci-lint run`
-3. ✅ Все ошибки обрабатываются явно
-4. ✅ Есть unit тесты для нового функционала
-5. ✅ Тесты проходят: `go test ./...`
-6. ✅ Нет хардкода - конфигурация через env variables
+1. ✅ Код проходит `black .`
+2. ✅ Код проходит `flake8 .` и `mypy .`
+3. ✅ Все ошибки и исключения обрабатываются явно
+4. ✅ Есть unit-тесты для нового функционала (pytest)
+5. ✅ Тесты проходят: `pytest`
+6. ✅ Нет хардкода — конфигурация через env variables
 7. ✅ Логирование важных операций
 8. ✅ Документация обновлена (если требуется)
 9. ✅ Пометь выполненные задания в файле copilot-tasks.md
