@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.connection import get_db
 from app.models.common import (create_paginated_response,
                                not_found_error_response)
+from app.models.resume import PersonalInfo, ResumeData, Skills
 from app.models.session import (CompleteSessionResponse, Language,
                                 MessageCreate, MessageResponse, ProgressInfo,
                                 SendMessageResponse, SessionCreate,
@@ -43,26 +44,12 @@ async def get_interview_sessions(
         Paginated list of sessions
     """
     repo = SessionRepository(db)
-    try:
-        sessions, total = await repo.get_user_sessions(
-            user_id=uuid.UUID(current_user_id),
-            status=status_filter,
-            limit=limit,
-            offset=offset,
-        )
-    except ValueError as exc:
-        logger.warning(
-            "Invalid status filter provided for user %s: %s", current_user_id, status_filter
-        )
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "error": {
-                    "code": "INVALID_STATUS",
-                    "message": str(exc),
-                }
-            },
-        ) from exc
+    sessions, total = await repo.get_user_sessions(
+        user_id=uuid.UUID(current_user_id),
+        status=status_filter,
+        limit=limit,
+        offset=offset,
+    )
 
     # Convert to response models
     session_data = [SessionResponse.model_validate(s) for s in sessions]
@@ -250,7 +237,7 @@ async def send_message(
         )
 
     # Check if session is still in progress
-    if session.status != "in_progress":
+    if session.status != SessionStatus.IN_PROGRESS:
         logger.warning(
             f"Attempt to send message to non-active session: {sessionId}")
         raise HTTPException(
@@ -339,29 +326,37 @@ async def complete_interview(
     completed_session = await repo.complete_session(sessionId)
 
     # Create resume from session data
-    # Extract data from messages for resume generation
-    messages = await repo.get_session_messages(sessionId)
+    from app.repository.user import UserRepository
 
-    # TODO: Use AI to extract structured data from messages
-    # For now, create a basic resume with placeholder data
-    resume_data = {
-        "personalInfo": {
-            "firstName": "User",
-            "lastName": "Name",
-            "email": "user@example.com",
-        },
-        "summary": "Generated from AI interview session",
-        "workExperience": [],
-        "education": [],
-        "skills": {"technical": [], "soft": [], "languages": []},
-    }
+    user_repo = UserRepository(db)
+    user = await user_repo.get_user_by_id(uuid.UUID(current_user_id))
+
+    resume_data = ResumeData(
+        personal_info=PersonalInfo(
+            first_name=user.first_name or "Unknown",
+            last_name=user.last_name or "Unknown",
+            email=user.email,
+            phone=user.phone,
+            location=getattr(user, "location", None),
+            links=[],
+        ),
+        summary="Generated from AI interview session",
+        work_experience=[],
+        education=[],
+        skills=Skills(),
+        certifications=[],
+        projects=[],
+        raw_content="Generated resume content based on AI interview session",
+        preferred_format="pdf",
+        auto_generated=True,
+    )
 
     # Create resume
     resume = await resume_repo.create_resume(
         user_id=uuid.UUID(current_user_id),
         session_id=sessionId,
         title="AI Generated Resume",
-        data=resume_data,
+        data=resume_data.model_dump(),
     )
 
     logger.info(

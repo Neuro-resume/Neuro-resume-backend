@@ -527,66 +527,6 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-    patch:
-      tags:
-        - resume
-      summary: Обновить резюме
-      description: Редактирование данных резюме
-      operationId: updateResume
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: resumeId
-          in: path
-          required: true
-          description: ID резюме
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ResumeData'
-      responses:
-        '200':
-          description: Резюме успешно обновлено
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Resume'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '422':
-          $ref: '#/components/responses/ValidationError'
-
-    delete:
-      tags:
-        - resume
-      summary: Удалить резюме
-      description: Удаление резюме
-      operationId: deleteResume
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: resumeId
-          in: path
-          required: true
-          description: ID резюме
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '204':
-          description: Резюме успешно удалено
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
   /resumes/{resumeId}/download:
     get:
       tags:

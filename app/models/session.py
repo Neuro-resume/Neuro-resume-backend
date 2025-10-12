@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import (Column, DateTime, Enum, ForeignKey, Integer, String,
                         Text)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -90,8 +90,10 @@ class Message(Base):
     role = Column(Enum(MessageRole, name="messagerole",
                   native_enum=True, create_constraint=True), nullable=False)
     content = Column(Text, nullable=False)
-    # Renamed from 'metadata' to avoid SQLAlchemy conflict
-    message_metadata = Column(JSONB, nullable=True)
+    # Store metadata while avoiding attribute name collision with Base class
+    message_metadata = Column(
+        "metadata", JSONB, nullable=True
+    )
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships
@@ -175,20 +177,39 @@ class MessageResponse(BaseModel):
     session_id: uuid.UUID = Field(..., alias="sessionId")
     role: MessageRole
     content: str
-    message_metadata: Optional[Dict[str, Any]] = Field(None, alias="metadata")
+    metadata: Optional[Dict[str, Any]] = None
     created_at: datetime = Field(..., alias="createdAt")
 
-    class Config:
-        from_attributes = True
-        populate_by_name = True
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+
+    @model_validator(mode="before")
+    @classmethod
+    def map_sqlalchemy_instance(cls, value: Any) -> Any:
+        """Map SQLAlchemy message attributes to API schema."""
+        if isinstance(value, Message):
+            return {
+                "id": value.id,
+                "sessionId": value.session_id,
+                "role": value.role,
+                "content": value.content,
+                "metadata": value.message_metadata,
+                "createdAt": value.created_at,
+            }
+
+        if isinstance(value, dict) and "message_metadata" in value and "metadata" not in value:
+            value = {**value, "metadata": value["message_metadata"]}
+
+        return value
 
 
 class SendMessageResponse(BaseModel):
     """Response after sending a message."""
 
-    user_message: MessageResponse
-    ai_response: MessageResponse
+    user_message: MessageResponse = Field(..., alias="userMessage")
+    ai_response: MessageResponse = Field(..., alias="aiResponse")
     progress: ProgressInfo
+
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class CompleteSessionResponse(BaseModel):
