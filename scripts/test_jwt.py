@@ -32,7 +32,7 @@ decoded_user_id = decode_access_token(token)
 if decoded_user_id:
     print(f"✅ Token decoded successfully!")
     print(f"   Extracted user_id: {decoded_user_id}")
-    
+
     if decoded_user_id == test_user_id:
         print("✅ User ID matches! Token validation is working correctly.\n")
     else:

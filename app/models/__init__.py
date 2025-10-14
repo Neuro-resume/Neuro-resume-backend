@@ -1,8 +1,9 @@
 """Database models for the application."""
 
-from app.models.resume import Resume, ResumeCreate, ResumeResponse, ResumeUpdate
-from app.models.session import InterviewSession, Message, SessionCreate, SessionResponse
-from app.models.user import User, UserCreate, UserInDB, UserResponse, UserUpdate
+from app.models.session import (InterviewSession, Message, SessionCreate,
+                                SessionResponse)
+from app.models.user import (User, UserCreate, UserInDB, UserResponse,
+                             UserUpdate)
 
 __all__ = [
     # User
@@ -16,9 +17,4 @@ __all__ = [
     "Message",
     "SessionCreate",
     "SessionResponse",
-    # Resume
-    "Resume",
-    "ResumeCreate",
-    "ResumeUpdate",
-    "ResumeResponse",
 ]

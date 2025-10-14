@@ -2,15 +2,13 @@
 
 import logging
 import uuid
-from typing import List, Optional
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.connection import get_db
-from app.models.common import (create_paginated_response,
-                               not_found_error_response)
-from app.models.resume import PersonalInfo, ResumeData, Skills
+from app.models.common import not_found_error_response
 from app.models.session import (CompleteSessionResponse, Language,
                                 MessageCreate, MessageResponse, ProgressInfo,
                                 SendMessageResponse, SessionCreate,
@@ -64,8 +62,8 @@ async def get_interview_sessions(
             "total": total,
             "limit": limit,
             "offset": offset,
-            "has_more": offset + len(sessions) < total
-        }
+            "has_more": offset + len(sessions) < total,
+        },
     }
 
 
@@ -95,16 +93,16 @@ async def create_interview_session(
     return SessionResponse.model_validate(session)
 
 
-@router.get("/sessions/{sessionId}", response_model=SessionResponse)
+@router.get("/sessions/{session_id}", response_model=SessionResponse)
 async def get_interview_session(
-    sessionId: uuid.UUID,
+    session_id: uuid.UUID,
     current_user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ) -> SessionResponse:
     """Get interview session details.
 
     Args:
-        sessionId: Session ID
+    session_id: Session ID
         current_user_id: Current authenticated user ID
         db: Database session
 
@@ -115,31 +113,31 @@ async def get_interview_session(
         HTTPException: If session not found
     """
     repo = SessionRepository(db)
-    session = await repo.get_session_by_id(sessionId, user_id=uuid.UUID(current_user_id))
+    session = await repo.get_session_by_id(session_id, user_id=uuid.UUID(current_user_id))
 
     if not session:
         logger.warning(
-            f"Session not found: {sessionId} for user {current_user_id}")
+            f"Session not found: {session_id} for user {current_user_id}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=not_found_error_response(
                 "Interview session not found").dict(),
         )
 
-    logger.info(f"Retrieved session: {sessionId}")
+    logger.info(f"Retrieved session: {session_id}")
     return SessionResponse.model_validate(session)
 
 
-@router.delete("/sessions/{sessionId}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_interview_session(
-    sessionId: uuid.UUID,
+    session_id: uuid.UUID,
     current_user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ) -> None:
     """Delete interview session.
 
     Args:
-        sessionId: Session ID
+    session_id: Session ID
         current_user_id: Current authenticated user ID
         db: Database session
 
@@ -147,30 +145,30 @@ async def delete_interview_session(
         HTTPException: If session not found
     """
     repo = SessionRepository(db)
-    deleted = await repo.delete_session(sessionId, user_id=uuid.UUID(current_user_id))
+    deleted = await repo.delete_session(session_id, user_id=uuid.UUID(current_user_id))
 
     if not deleted:
-        logger.warning(f"Session not found for deletion: {sessionId}")
+        logger.warning(f"Session not found for deletion: {session_id}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=not_found_error_response(
                 "Interview session not found").dict(),
         )
 
-    logger.info(f"Deleted session: {sessionId}")
+    logger.info(f"Deleted session: {session_id}")
     return None
 
 
-@router.get("/sessions/{sessionId}/messages")
+@router.get("/sessions/{session_id}/messages")
 async def get_session_messages(
-    sessionId: uuid.UUID,
+    session_id: uuid.UUID,
     current_user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
     """Get all messages in interview session.
 
     Args:
-        sessionId: Session ID
+    session_id: Session ID
         current_user_id: Current authenticated user ID
         db: Database session
 
@@ -183,9 +181,9 @@ async def get_session_messages(
     repo = SessionRepository(db)
 
     # Verify session exists and belongs to user
-    session = await repo.get_session_by_id(sessionId, user_id=uuid.UUID(current_user_id))
+    session = await repo.get_session_by_id(session_id, user_id=uuid.UUID(current_user_id))
     if not session:
-        logger.warning(f"Session not found: {sessionId}")
+        logger.warning(f"Session not found: {session_id}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=not_found_error_response(
@@ -193,16 +191,16 @@ async def get_session_messages(
         )
 
     # Get messages
-    messages = await repo.get_session_messages(sessionId)
+    messages = await repo.get_session_messages(session_id)
     message_data = [MessageResponse.model_validate(m) for m in messages]
 
-    logger.info(f"Retrieved {len(messages)} messages for session {sessionId}")
-    return {"sessionId": sessionId, "messages": message_data}
+    logger.info(f"Retrieved {len(messages)} messages for session {session_id}")
+    return {"session_id": str(session_id), "messages": message_data}
 
 
-@router.post("/sessions/{sessionId}/messages", response_model=SendMessageResponse)
+@router.post("/sessions/{session_id}/messages", response_model=SendMessageResponse)
 async def send_message(
-    sessionId: uuid.UUID,
+    session_id: uuid.UUID,
     message_data: MessageCreate,
     current_user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
@@ -213,7 +211,7 @@ async def send_message(
     will be implemented in the services layer using MCP.
 
     Args:
-        sessionId: Session ID
+    session_id: Session ID
         message_data: Message content
         current_user_id: Current authenticated user ID
         db: Database session
@@ -227,9 +225,9 @@ async def send_message(
     repo = SessionRepository(db)
 
     # Verify session exists and belongs to user
-    session = await repo.get_session_by_id(sessionId, user_id=uuid.UUID(current_user_id))
+    session = await repo.get_session_by_id(session_id, user_id=uuid.UUID(current_user_id))
     if not session:
-        logger.warning(f"Session not found: {sessionId}")
+        logger.warning(f"Session not found: {session_id}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=not_found_error_response(
@@ -239,7 +237,7 @@ async def send_message(
     # Check if session is still in progress
     if session.status != SessionStatus.IN_PROGRESS:
         logger.warning(
-            f"Attempt to send message to non-active session: {sessionId}")
+            f"Attempt to send message to non-active session: {session_id}")
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={"error": {"code": "CONFLICT",
@@ -248,8 +246,9 @@ async def send_message(
 
     # Create user message
     from app.models.session import MessageRole
+
     user_message = await repo.create_message(
-        session_id=sessionId, role=MessageRole.USER, content=message_data.content
+        session_id=session_id, role=MessageRole.USER, content=message_data.content
     )
 
     # TODO: Integrate with AI service (MCP) to generate response
@@ -257,19 +256,19 @@ async def send_message(
     ai_response_content = "Thank you for your response. This is a placeholder. AI integration will be implemented using MCP."
 
     ai_message = await repo.create_message(
-        session_id=sessionId, role=MessageRole.AI, content=ai_response_content
+        session_id=session_id, role=MessageRole.AI, content=ai_response_content
     )
 
     # Update progress (placeholder logic)
     current_percentage = session.progress.get("percentage", 0)
     new_percentage = min(current_percentage + 10, 100)
-    await repo.update_session_progress(session_id=sessionId, percentage=new_percentage)
+    await repo.update_session_progress(session_id=session_id, percentage=new_percentage)
 
     # Get updated session for progress
-    updated_session = await repo.get_session_by_id(sessionId)
+    updated_session = await repo.get_session_by_id(session_id)
     progress = ProgressInfo(**updated_session.progress)
 
-    logger.info(f"Processed message exchange in session: {sessionId}")
+    logger.info(f"Processed message exchange in session: {session_id}")
 
     return SendMessageResponse(
         user_message=MessageResponse.model_validate(user_message),
@@ -278,34 +277,31 @@ async def send_message(
     )
 
 
-@router.post("/sessions/{sessionId}/complete", response_model=CompleteSessionResponse)
+@router.post("/sessions/{session_id}/complete", response_model=CompleteSessionResponse)
 async def complete_interview(
-    sessionId: uuid.UUID,
+    session_id: uuid.UUID,
     current_user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ) -> CompleteSessionResponse:
-    """Complete interview and generate resume.
+    """Complete interview and store generated resume markdown.
 
     Args:
-        sessionId: Session ID
+    session_id: Session ID
         current_user_id: Current authenticated user ID
         db: Database session
 
     Returns:
-        Completed session and resume ID
+        Completed session and generated markdown content
 
     Raises:
         HTTPException: If session not found or already completed
     """
-    from app.repository.resume import ResumeRepository
-
     repo = SessionRepository(db)
-    resume_repo = ResumeRepository(db)
 
     # Verify session exists and belongs to user
-    session = await repo.get_session_by_id(sessionId, user_id=uuid.UUID(current_user_id))
+    session = await repo.get_session_by_id(session_id, user_id=uuid.UUID(current_user_id))
     if not session:
-        logger.warning(f"Session not found: {sessionId}")
+        logger.warning(f"Session not found: {session_id}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=not_found_error_response(
@@ -315,54 +311,43 @@ async def complete_interview(
     # Check if already completed
     if session.status == SessionStatus.COMPLETED:
         logger.warning(
-            f"Attempt to complete already completed session: {sessionId}")
+            f"Attempt to complete already completed session: {session_id}")
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail={"error": {"code": "CONFLICT",
                               "message": "Interview already completed"}},
         )
 
-    # Complete session
-    completed_session = await repo.complete_session(sessionId)
-
-    # Create resume from session data
     from app.repository.user import UserRepository
 
     user_repo = UserRepository(db)
     user = await user_repo.get_user_by_id(uuid.UUID(current_user_id))
 
-    resume_data = ResumeData(
-        personal_info=PersonalInfo(
-            first_name=user.first_name or "Unknown",
-            last_name=user.last_name or "Unknown",
-            email=user.email,
-            phone=user.phone,
-            location=getattr(user, "location", None),
-            links=[],
-        ),
-        summary="Generated from AI interview session",
-        work_experience=[],
-        education=[],
-        skills=Skills(),
-        certifications=[],
-        projects=[],
-        raw_content="Generated resume content based on AI interview session",
-        preferred_format="pdf",
-        auto_generated=True,
+    # Placeholder: generate simple markdown resume content
+    resume_lines = [
+        f"# Resume for {user.username}",
+        "",
+        f"- Email: {user.email}",
+    ]
+
+    resume_lines.extend(
+        [
+            "",
+            "_Generated from AI interview session. Content will be replaced by the AI service._",
+        ]
     )
 
-    # Create resume
-    resume = await resume_repo.create_resume(
-        user_id=uuid.UUID(current_user_id),
-        session_id=sessionId,
-        title="AI Generated Resume",
-        data=resume_data.model_dump(),
+    resume_markdown = "\n".join(resume_lines)
+
+    completed_session = await repo.complete_session(
+        session_id, resume_markdown=resume_markdown
     )
 
     logger.info(
-        f"Completed interview session: {sessionId}, generated resume: {resume.id}")
+        "Completed interview session %s and stored resume markdown", session_id
+    )
 
     return CompleteSessionResponse(
         session=SessionResponse.model_validate(completed_session),
-        resume_id=resume.id
+        resume_markdown=completed_session.resume_markdown or resume_markdown,
     )

@@ -2,11 +2,10 @@
 
 import logging
 import uuid
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.models.session import (InterviewSession, Language, Message,
                                 MessageRole, SessionStatus)
@@ -37,14 +36,17 @@ class SessionRepository:
         Returns:
             Created session
         """
-        logger.info(f"here is create sess")
         session_obj = InterviewSession(
             user_id=user_id,
             language=language,
-            status="in_progress",
-            progress={"percentage": 0, "completedSections": [],
-                      "currentSection": None},
+            status=SessionStatus.IN_PROGRESS,
+            progress={
+                "percentage": 0,
+                "completed_sections": [],
+                "current_section": None,
+            },
             message_count=0,
+            resume_markdown=None,
         )
         self.session.add(session_obj)
         await self.session.commit()
@@ -99,10 +101,12 @@ class SessionRepository:
 
         # Add status filter
         if status:
-            status_enum = self._normalize_status_filter(status)
-            query = query.where(InterviewSession.status == status_enum)
+            # Use .value to get the string value of the enum for PostgreSQL
+            status_value = status.value if isinstance(
+                status, SessionStatus) else status
+            query = query.where(InterviewSession.status == status_value)
             count_query = count_query.where(
-                InterviewSession.status == status_enum)
+                InterviewSession.status == status_value)
 
         # Get total count
         total_result = await self.session.execute(count_query)
@@ -115,45 +119,6 @@ class SessionRepository:
         sessions = result.scalars().all()
 
         return list(sessions), total
-
-    @staticmethod
-    def _normalize_status_filter(status: Union[SessionStatus, str]) -> SessionStatus:
-        """Convert incoming status filter to SessionStatus enum.
-
-        Args:
-            status: Status provided by handler or caller.
-
-        Returns:
-            Normalized SessionStatus value.
-
-        Raises:
-            ValueError: If status cannot be mapped to a valid SessionStatus.
-        """
-
-        if isinstance(status, SessionStatus):
-            return status
-
-        if isinstance(status, str):
-            raw_value = status.strip()
-            if not raw_value:
-                raise ValueError("Empty status filter is not allowed")
-
-            normalized_key = raw_value.replace("-", "_")
-
-            # Try matching by enum name (upper case)
-            try:
-                return SessionStatus[normalized_key.upper()]
-            except KeyError:
-                pass
-
-            # Try matching by enum value (lower case)
-            try:
-                return SessionStatus(normalized_key.lower())
-            except ValueError:
-                pass
-
-        logger.warning("Unexpected session status filter received: %s", status)
-        raise ValueError(f"Unsupported session status filter: {status}")
 
     async def update_session_progress(
         self,
@@ -178,23 +143,33 @@ class SessionRepository:
             return None
 
         progress = session_obj.progress or {}
+
+        # Normalize any legacy camelCase keys before updating
+        if "completedSections" in progress and "completed_sections" not in progress:
+            progress["completed_sections"] = progress.pop("completedSections")
+        if "currentSection" in progress and "current_section" not in progress:
+            progress["current_section"] = progress.pop("currentSection")
+
         if percentage is not None:
             progress["percentage"] = percentage
         if completed_sections is not None:
-            progress["completedSections"] = completed_sections
+            progress["completed_sections"] = completed_sections
         if current_section is not None:
-            progress["currentSection"] = current_section
+            progress["current_section"] = current_section
 
         session_obj.progress = progress
         await self.session.commit()
         await self.session.refresh(session_obj)
         return session_obj
 
-    async def complete_session(self, session_id: uuid.UUID) -> Optional[InterviewSession]:
-        """Mark session as completed.
+    async def complete_session(
+        self, session_id: uuid.UUID, resume_markdown: Optional[str] = None
+    ) -> Optional[InterviewSession]:
+        """Mark session as completed and optionally persist resume markdown.
 
         Args:
             session_id: Session ID
+            resume_markdown: Generated markdown content (optional)
 
         Returns:
             Updated session if found, None otherwise
@@ -206,6 +181,8 @@ class SessionRepository:
         session_obj.status = SessionStatus.COMPLETED
         from datetime import datetime
         session_obj.completed_at = datetime.utcnow()
+        if resume_markdown is not None:
+            session_obj.resume_markdown = resume_markdown
 
         await self.session.commit()
         await self.session.refresh(session_obj)
@@ -262,7 +239,6 @@ class SessionRepository:
 
         await self.session.commit()
         await self.session.refresh(message)
-        logger.info(f"Created message: {message.id} in session {session_id}")
         return message
 
     async def get_session_messages(

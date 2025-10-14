@@ -49,7 +49,9 @@ def create_error_response(
 
 def validation_error_response(details: List[Dict[str, str]]) -> ErrorResponse:
     """Create a validation error response."""
-    return create_error_response(code="VALIDATION_ERROR", message="Validation failed", details=details)
+    return create_error_response(
+        code="VALIDATION_ERROR", message="Validation failed", details=details
+    )
 
 
 def unauthorized_error_response(message: str = "Authentication required") -> ErrorResponse:

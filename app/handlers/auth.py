@@ -7,21 +7,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.connection import get_db
-from app.models.common import ErrorResponse, conflict_error_response, unauthorized_error_response
-from app.models.user import (
-    ChangePasswordRequest,
-    TokenResponse,
-    UserCreate,
-    UserLogin,
-    UserResponse,
-)
+from app.models.common import (ErrorResponse, conflict_error_response,
+                               unauthorized_error_response)
+from app.models.user import (ChangePasswordRequest, TokenResponse, UserCreate,
+                             UserLogin, UserResponse)
 from app.repository.user import UserRepository
-from app.utils.security import (
-    create_access_token,
-    get_current_user_id,
-    hash_password,
-    verify_password,
-)
+from app.utils.security import (create_access_token, get_current_user_id,
+                                hash_password, verify_password)
 
 logger = logging.getLogger(__name__)
 
@@ -34,14 +26,14 @@ async def register(
     db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:
     """Register a new user.
-    
+
     Args:
         user_data: User registration data
         db: Database session
-        
+
     Returns:
         Token response with user data
-        
+
     Raises:
         HTTPException: If username or email already exists
     """
@@ -50,19 +42,24 @@ async def register(
     # Check if username exists
     existing_user = await repo.get_user_by_username(user_data.username)
     if existing_user:
-        logger.warning(f"Registration attempt with existing username: {user_data.username}")
+        logger.warning(
+            f"Registration attempt with existing username: {user_data.username}")
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=conflict_error_response(f"Username '{user_data.username}' already exists").dict(),
+            detail=conflict_error_response(
+                f"Username '{user_data.username}' already exists"
+            ).dict(),
         )
 
     # Check if email exists
     existing_email = await repo.get_user_by_email(user_data.email)
     if existing_email:
-        logger.warning(f"Registration attempt with existing email: {user_data.email}")
+        logger.warning(
+            f"Registration attempt with existing email: {user_data.email}")
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=conflict_error_response(f"Email '{user_data.email}' already exists").dict(),
+            detail=conflict_error_response(
+                f"Email '{user_data.email}' already exists").dict(),
         )
 
     # Create user
@@ -71,15 +68,13 @@ async def register(
         username=user_data.username,
         email=user_data.email,
         password_hash=password_hash,
-        first_name=user_data.first_name,
-        last_name=user_data.last_name,
-        phone=user_data.phone,
     )
 
     # Generate token
     token = create_access_token(str(user.id))
 
-    logger.info(f"User registered successfully: {user.username} (ID: {user.id})")
+    logger.info(
+        f"User registered successfully: {user.username} (ID: {user.id})")
 
     return TokenResponse(
         token=token,
@@ -94,14 +89,14 @@ async def login(
     db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:
     """Authenticate user and return token.
-    
+
     Args:
         credentials: Login credentials
         db: Database session
-        
+
     Returns:
         Token response with user data
-        
+
     Raises:
         HTTPException: If credentials are invalid
     """
@@ -110,24 +105,29 @@ async def login(
     # Find user by username
     user = await repo.get_user_by_username(credentials.username)
     if not user:
-        logger.warning(f"Login attempt with non-existent username: {credentials.username}")
+        logger.warning(
+            f"Login attempt with non-existent username: {credentials.username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=unauthorized_error_response("Invalid username or password").dict(),
+            detail=unauthorized_error_response(
+                "Invalid username or password").dict(),
         )
 
     # Verify password
     if not verify_password(credentials.password, user.password_hash):
-        logger.warning(f"Failed login attempt for user: {credentials.username}")
+        logger.warning(
+            f"Failed login attempt for user: {credentials.username}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=unauthorized_error_response("Invalid username or password").dict(),
+            detail=unauthorized_error_response(
+                "Invalid username or password").dict(),
         )
 
     # Generate token
     token = create_access_token(str(user.id))
 
-    logger.info(f"User logged in successfully: {user.username} (ID: {user.id})")
+    logger.info(
+        f"User logged in successfully: {user.username} (ID: {user.id})")
 
     return TokenResponse(
         token=token,
@@ -141,11 +141,11 @@ async def logout(
     current_user_id: str = Depends(get_current_user_id),
 ) -> None:
     """Logout user (invalidate token).
-    
+
     Note: In a stateless JWT implementation, actual token invalidation
     would require a token blacklist or short-lived tokens with refresh tokens.
     This endpoint is mainly for client-side token removal.
-    
+
     Args:
         current_user_id: Current authenticated user ID
     """
@@ -159,14 +159,14 @@ async def refresh_token(
     db: AsyncSession = Depends(get_db),
 ) -> TokenResponse:
     """Refresh access token.
-    
+
     Args:
         current_user_id: Current authenticated user ID
         db: Database session
-        
+
     Returns:
         New token response
-        
+
     Raises:
         HTTPException: If user not found
     """

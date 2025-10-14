@@ -20,10 +20,10 @@ security = HTTPBearer()
 
 def hash_password(password: str) -> str:
     """Hash a password using bcrypt.
-    
+
     Args:
         password: Plain text password
-        
+
     Returns:
         Hashed password
     """
@@ -34,18 +34,16 @@ def hash_password(password: str) -> str:
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against a hash.
-    
+
     Args:
         plain_password: Plain text password
         hashed_password: Hashed password to verify against
-        
+
     Returns:
         True if password matches, False otherwise
     """
     try:
-        return bcrypt.checkpw(
-            plain_password.encode("utf-8"), hashed_password.encode("utf-8")
-        )
+        return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
     except Exception as e:
         logger.error(f"Password verification error: {e}")
         return False
@@ -53,11 +51,11 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def create_access_token(user_id: str, expires_delta: Optional[timedelta] = None) -> str:
     """Create a JWT access token.
-    
+
     Args:
         user_id: User ID to encode in token
         expires_delta: Optional custom expiration time
-        
+
     Returns:
         JWT token string
     """
@@ -78,10 +76,10 @@ def create_access_token(user_id: str, expires_delta: Optional[timedelta] = None)
 
 def decode_access_token(token: str) -> Optional[str]:
     """Decode and verify a JWT token.
-    
+
     Args:
         token: JWT token string
-        
+
     Returns:
         User ID from token, or None if invalid
     """
@@ -110,13 +108,13 @@ async def get_current_user_id(
     credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> str:
     """Dependency to get current authenticated user ID from token.
-    
+
     Args:
         credentials: HTTP Bearer credentials from request
-        
+
     Returns:
         User ID
-        
+
     Raises:
         HTTPException: If token is invalid or missing
     """

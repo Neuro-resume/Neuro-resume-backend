@@ -6,8 +6,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import (Column, DateTime, Enum, ForeignKey, Integer, String,
-                        Text)
+from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, Text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
@@ -52,21 +51,21 @@ class InterviewSession(Base):
              native_enum=True, create_constraint=True),
         default="in_progress",
         nullable=False,
-        index=True
+        index=True,
     )
     language = Column(
         Enum(Language, name="language", native_enum=True, create_constraint=True),
         default=Language.RU,
-        nullable=False
+        nullable=False,
     )
     # {percentage, completedSections, currentSection}
     progress = Column(JSONB, default=dict, nullable=False)
     message_count = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(
-        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
-    )
+    updated_at = Column(DateTime, default=datetime.utcnow,
+                        onupdate=datetime.utcnow, nullable=False)
     completed_at = Column(DateTime, nullable=True)
+    resume_markdown = Column(Text, nullable=True)
 
     # Relationships
     user = relationship("User", backref="interview_sessions")
@@ -87,13 +86,14 @@ class Message(Base):
     session_id = Column(
         UUID(as_uuid=True), ForeignKey("interview_sessions.id"), nullable=False, index=True
     )
-    role = Column(Enum(MessageRole, name="messagerole",
-                  native_enum=True, create_constraint=True), nullable=False)
+    role = Column(
+        Enum(MessageRole, name="messagerole",
+             native_enum=True, create_constraint=True),
+        nullable=False,
+    )
     content = Column(Text, nullable=False)
     # Store metadata while avoiding attribute name collision with Base class
-    message_metadata = Column(
-        "metadata", JSONB, nullable=True
-    )
+    message_metadata = Column("metadata", JSONB, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships
@@ -110,18 +110,19 @@ class ProgressInfo(BaseModel):
     percentage: int = Field(
         0, ge=0, le=100, description="Completion percentage")
     completed_sections: List[str] = Field(
-        default_factory=list,
-        description="Completed sections",
-        alias="completedSections"
-    )
-    current_section: Optional[str] = Field(
-        None,
-        description="Current section",
-        alias="currentSection"
-    )
+        default_factory=list, description="Completed sections")
+    current_section: Optional[str] = Field(None, description="Current section")
 
-    class Config:
-        populate_by_name = True  # Allow both snake_case and camelCase
+    @model_validator(mode="before")
+    @classmethod
+    def allow_camel_case_keys(cls, value: Any) -> Any:
+        """Support legacy camelCase payloads while emitting snake_case."""
+        if isinstance(value, dict):
+            if "completedSections" in value and "completed_sections" not in value:
+                value["completed_sections"] = value.pop("completedSections")
+            if "currentSection" in value and "current_section" not in value:
+                value["current_section"] = value.pop("currentSection")
+        return value
 
 
 class SessionBase(BaseModel):
@@ -141,27 +142,23 @@ class SessionResponse(SessionBase):
     """Session schema for API responses."""
 
     id: uuid.UUID
-    user_id: uuid.UUID = Field(..., alias="userId")
+    user_id: uuid.UUID
     status: SessionStatus
     progress: ProgressInfo
-    message_count: int = Field(..., alias="messageCount")
-    created_at: datetime = Field(..., alias="createdAt")
-    updated_at: datetime = Field(..., alias="updatedAt")
-    completed_at: Optional[datetime] = Field(None, alias="completedAt")
+    message_count: int
+    created_at: datetime
+    updated_at: datetime
+    completed_at: Optional[datetime] = None
+    resume_markdown: Optional[str] = None
 
-    class Config:
-        from_attributes = True
-        populate_by_name = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class MessageBase(BaseModel):
     """Base message schema."""
 
     content: str = Field(..., min_length=1, max_length=5000,
-                         description="Message content", alias="message")
-
-    class Config:
-        populate_by_name = True  # Allow both 'content' and 'message'
+                         description="Message content")
 
 
 class MessageCreate(MessageBase):
@@ -174,13 +171,13 @@ class MessageResponse(BaseModel):
     """Message schema for API responses."""
 
     id: uuid.UUID
-    session_id: uuid.UUID = Field(..., alias="sessionId")
+    session_id: uuid.UUID
     role: MessageRole
     content: str
     metadata: Optional[Dict[str, Any]] = None
-    created_at: datetime = Field(..., alias="createdAt")
+    created_at: datetime
 
-    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+    model_config = ConfigDict(from_attributes=True)
 
     @model_validator(mode="before")
     @classmethod
@@ -189,15 +186,20 @@ class MessageResponse(BaseModel):
         if isinstance(value, Message):
             return {
                 "id": value.id,
-                "sessionId": value.session_id,
+                "session_id": value.session_id,
                 "role": value.role,
                 "content": value.content,
                 "metadata": value.message_metadata,
-                "createdAt": value.created_at,
+                "created_at": value.created_at,
             }
 
-        if isinstance(value, dict) and "message_metadata" in value and "metadata" not in value:
-            value = {**value, "metadata": value["message_metadata"]}
+        if isinstance(value, dict):
+            if "sessionId" in value and "session_id" not in value:
+                value["session_id"] = value.pop("sessionId")
+            if "createdAt" in value and "created_at" not in value:
+                value["created_at"] = value.pop("createdAt")
+            if "message_metadata" in value and "metadata" not in value:
+                value = {**value, "metadata": value["message_metadata"]}
 
         return value
 
@@ -205,18 +207,13 @@ class MessageResponse(BaseModel):
 class SendMessageResponse(BaseModel):
     """Response after sending a message."""
 
-    user_message: MessageResponse = Field(..., alias="userMessage")
-    ai_response: MessageResponse = Field(..., alias="aiResponse")
+    user_message: MessageResponse
+    ai_response: MessageResponse
     progress: ProgressInfo
-
-    model_config = ConfigDict(populate_by_name=True)
 
 
 class CompleteSessionResponse(BaseModel):
-    """Response after completing a session."""
+    """Response after completing a session (includes generated markdown)."""
 
     session: SessionResponse
-    resume_id: uuid.UUID = Field(..., alias="resumeId")
-
-    class Config:
-        populate_by_name = True
+    resume_markdown: str
