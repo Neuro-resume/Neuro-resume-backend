@@ -18,9 +18,9 @@ from app.db.connection import Base
 class SessionStatus(str, enum.Enum):
     """Interview session status."""
 
-    IN_PROGRESS = "IN_PROGRESS"
-    COMPLETED = "COMPLETED"
-    ABANDONED = "ABANDONED"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    ABANDONED = "abandoned"
 
 
 class MessageRole(str, enum.Enum):
