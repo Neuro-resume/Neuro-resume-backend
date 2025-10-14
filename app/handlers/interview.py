@@ -5,14 +5,15 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.connection import get_db
 from app.models.common import not_found_error_response
 from app.models.session import (CompleteSessionResponse, Language,
                                 MessageCreate, MessageResponse, ProgressInfo,
-                                SendMessageResponse, SessionCreate,
-                                SessionResponse, SessionStatus)
+                                ResumeMarkdownPayload, SendMessageResponse,
+                                SessionCreate, SessionResponse, SessionStatus)
 from app.repository.session import SessionRepository
 from app.utils.security import get_current_user_id
 
@@ -340,14 +341,62 @@ async def complete_interview(
     resume_markdown = "\n".join(resume_lines)
 
     completed_session = await repo.complete_session(
-        session_id, resume_markdown=resume_markdown
+        session_id,
+        resume_markdown=resume_markdown,
+        resume_format="text/markdown",
     )
 
     logger.info(
         "Completed interview session %s and stored resume markdown", session_id
     )
 
+    suggested_filename = f"{user.username}_resume.md" if user and user.username else "resume.md"
+
     return CompleteSessionResponse(
         session=SessionResponse.model_validate(completed_session),
-        resume_markdown=completed_session.resume_markdown or resume_markdown,
+        resume_markdown=ResumeMarkdownPayload(
+            content=completed_session.resume_markdown or resume_markdown,
+            mime_type=completed_session.resume_format or "text/markdown",
+            filename=suggested_filename,
+        ),
+    )
+
+
+@router.get("/sessions/{session_id}/resume")
+async def get_session_resume(
+    session_id: uuid.UUID,
+    current_user_id: str = Depends(get_current_user_id),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return stored resume content for the given session as markdown."""
+
+    repo = SessionRepository(db)
+    session = await repo.get_session_by_id(session_id, user_id=uuid.UUID(current_user_id))
+
+    if not session:
+        logger.warning(
+            "Session not found when requesting resume: %s", session_id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=not_found_error_response(
+                "Interview session not found").dict(),
+        )
+
+    if not session.resume_content:
+        logger.warning("Resume content not found for session: %s", session_id)
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=not_found_error_response(
+                "Resume not found for session").dict(),
+        )
+
+    mime_type = session.resume_format or "text/markdown"
+    filename = f"{session_id}.md" if "markdown" in mime_type else f"{session_id}"
+
+    return Response(
+        content=session.resume_content,
+        media_type=mime_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        },
     )

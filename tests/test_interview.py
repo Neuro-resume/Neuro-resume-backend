@@ -206,8 +206,21 @@ class TestSessionCompletion:
         assert "session" in data
         assert "resume_markdown" in data
         assert data["session"]["status"] == "completed"
-        assert isinstance(data["resume_markdown"], str)
-        assert data["resume_markdown"].strip()
+        resume_payload = data["resume_markdown"]
+        assert isinstance(resume_payload, dict)
+        assert resume_payload["content"].strip()
+        assert resume_payload["mime_type"] == "text/markdown"
+        assert resume_payload["filename"].endswith(".md")
+
+        # Fetch resume via dedicated endpoint
+        resume_response = await client.get(
+            f"/v1/interview/sessions/{session_id}/resume", headers=auth_headers
+        )
+
+        assert resume_response.status_code == 200
+        assert resume_response.headers["content-type"].startswith(
+            "text/markdown")
+        assert "# Resume" in resume_response.text
 
     async def test_complete_nonexistent_session(self, client: AsyncClient, auth_headers):
         """Test completing non-existent session."""

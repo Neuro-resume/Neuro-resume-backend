@@ -6,7 +6,8 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, Text
+from sqlalchemy import (Column, DateTime, Enum, ForeignKey, Integer,
+                        LargeBinary, String, Text)
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import relationship
 
@@ -65,7 +66,8 @@ class InterviewSession(Base):
     updated_at = Column(DateTime, default=datetime.utcnow,
                         onupdate=datetime.utcnow, nullable=False)
     completed_at = Column(DateTime, nullable=True)
-    resume_markdown = Column(Text, nullable=True)
+    resume_content = Column(LargeBinary, nullable=True)
+    resume_format = Column(String(64), nullable=True)
 
     # Relationships
     user = relationship("User", backref="interview_sessions")
@@ -74,6 +76,28 @@ class InterviewSession(Base):
 
     def __repr__(self) -> str:
         return f"<InterviewSession(id={self.id}, user_id={self.user_id}, status={self.status})>"
+
+    @property
+    def resume_markdown(self) -> Optional[str]:
+        """Return stored resume markdown decoded from binary content."""
+        if not self.resume_content:
+            return None
+
+        try:
+            return self.resume_content.decode("utf-8")
+        except UnicodeDecodeError:
+            return self.resume_content.decode("utf-8", errors="ignore")
+
+    @resume_markdown.setter
+    def resume_markdown(self, value: Optional[str]) -> None:
+        """Persist resume markdown as UTF-8 encoded binary data."""
+        if value is None:
+            self.resume_content = None
+            self.resume_format = None
+        else:
+            self.resume_content = value.encode("utf-8")
+            if not self.resume_format:
+                self.resume_format = "text/markdown"
 
 
 class Message(Base):
@@ -212,8 +236,23 @@ class SendMessageResponse(BaseModel):
     progress: ProgressInfo
 
 
+class ResumeMarkdownPayload(BaseModel):
+    """Metadata and content for generated markdown resume."""
+
+    content: str = Field(...,
+                         description="Markdown content of the generated resume")
+    mime_type: str = Field(
+        default="text/markdown",
+        description="MIME type for the generated resume file",
+    )
+    filename: str = Field(
+        default="resume.md",
+        description="Suggested filename for downloading the generated resume",
+    )
+
+
 class CompleteSessionResponse(BaseModel):
     """Response after completing a session (includes generated markdown)."""
 
     session: SessionResponse
-    resume_markdown: str
+    resume_markdown: ResumeMarkdownPayload
