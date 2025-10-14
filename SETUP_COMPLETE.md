@@ -44,7 +44,6 @@
 -   ✅ Authentication (`/v1/auth`)
 -   ✅ User Profile (`/v1/user`)
 -   ✅ Interview Sessions (`/v1/interview`)
--   ✅ Resumes (`/v1/resumes`)
 
 ## 🚀 Команды для запуска
 

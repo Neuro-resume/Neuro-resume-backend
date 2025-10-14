@@ -4,20 +4,17 @@ import asyncio
 import logging
 from logging.config import fileConfig
 
+from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-from alembic import context
-
+from app.config import settings
 # Import your models' Base here
 from app.db.connection import Base
-from app.config import settings
-
+from app.models.session import InterviewSession, Message  # noqa: F401
 # Import all models here for Alembic autogenerate
 from app.models.user import User  # noqa: F401
-from app.models.session import InterviewSession, Message  # noqa: F401
-from app.models.resume import Resume  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

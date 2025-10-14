@@ -1,17 +1,19 @@
 """Test configuration and fixtures."""
 
 import asyncio
-import pytest
 import uuid
 from typing import AsyncGenerator, Generator
-from httpx import AsyncClient, ASGITransport
 
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+import pytest
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import (AsyncSession, async_sessionmaker,
+                                    create_async_engine)
 from sqlalchemy.pool import NullPool
 
-from app.main import app
-from app.db.connection import Base, get_db
 from app.config import settings
+from app.db.connection import Base, get_db
+from app.main import app
 
 # Test database URL
 TEST_DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5432/neuro_resume_test"
@@ -45,6 +47,8 @@ def event_loop() -> Generator:
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
     """Create a test database session."""
     async with test_engine.begin() as conn:
+        # Drop legacy tables that are no longer part of the metadata to keep the schema clean.
+        await conn.execute(text("DROP TABLE IF EXISTS resumes CASCADE"))
         await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
 
@@ -78,8 +82,6 @@ def test_user_data():
         "username": "testuser",
         "email": "test@example.com",
         "password": "testpass123",
-        "firstName": "Test",
-        "lastName": "User",
     }
 
 
@@ -90,8 +92,6 @@ def test_user_data_2():
         "username": "testuser2",
         "email": "test2@example.com",
         "password": "testpass456",
-        "firstName": "Test2",
-        "lastName": "User2",
     }
 
 

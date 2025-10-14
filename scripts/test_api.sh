@@ -121,9 +121,7 @@ REGISTER_PAYLOAD=$(cat <<EOF
 {
   "username": "$USERNAME",
   "email": "$EMAIL",
-  "password": "$PASSWORD",
-  "firstName": "CLI",
-  "lastName": "Tester"
+  "password": "$PASSWORD"
 }
 EOF
 )
@@ -154,23 +152,23 @@ step_success "Profile fetched"
 log_step "Update profile"
 UPDATE_PAYLOAD=$(cat <<EOF
 {
-  "firstName": "CLI",
-  "lastName": "Tester",
-  "phone": "+15550000001",
-  "location": "Remote",
-  "fullName": "CLI Tester"
+  "username": "${USERNAME}_updated",
+  "email": "updated_${EMAIL}"
 }
 EOF
 )
 UPDATED_PROFILE="$(api_request PATCH "/user/profile" "$UPDATE_PAYLOAD" "$TOKEN")"
-assert_json_condition "$UPDATED_PROFILE" "payload.get('phone') == '+15550000001'"
+assert_json_condition "$UPDATED_PROFILE" "payload['username'] == '${USERNAME}_updated'"
 step_success "Profile updated"
+
+USERNAME="${USERNAME}_updated"
+EMAIL="updated_${EMAIL}"
 
 log_step "Change password"
 CHANGE_PAYLOAD=$(cat <<EOF
 {
-  "currentPassword": "$PASSWORD",
-  "newPassword": "$NEW_PASSWORD"
+  "current_password": "$PASSWORD",
+  "new_password": "$NEW_PASSWORD"
 }
 EOF
 )
@@ -205,9 +203,9 @@ assert_json_condition "$MESSAGES_EMPTY" "payload['messages'] == []"
 step_success "Empty message list confirmed"
 
 log_step "Send interview message"
-MESSAGE_PAYLOAD='{"message": "I have 5 years of Python experience."}'
+MESSAGE_PAYLOAD='{"content": "I have 5 years of Python experience."}'
 MESSAGE_RESPONSE="$(api_request POST "/interview/sessions/$SESSION_ID/messages" "$MESSAGE_PAYLOAD" "$TOKEN")"
-assert_json_condition "$MESSAGE_RESPONSE" "payload['userMessage']['role'] == 'user'"
+assert_json_condition "$MESSAGE_RESPONSE" "payload['user_message']['role'] == 'user'"
 step_success "Interview message sent"
 
 log_step "Verify saved messages"
@@ -217,46 +215,13 @@ step_success "Message history contains user and AI messages"
 
 log_step "Complete interview"
 COMPLETE_RESPONSE="$(api_request POST "/interview/sessions/$SESSION_ID/complete" "" "$TOKEN")"
-assert_json_condition "$COMPLETE_RESPONSE" "'resumeId' in payload"
-RESUME_ID="$(parse_json_value "$COMPLETE_RESPONSE" "resumeId")"
-step_success "Interview session completed"
-
-log_step "Create additional resume"
-CREATE_RESUME_PAYLOAD=$(cat <<EOF
-{
-  "session_id": "$SESSION_ID",
-  "title": "Manual Resume",
-  "format": "pdf"
-}
-EOF
-)
-CREATE_RESUME_RESPONSE="$(api_request POST "/resumes" "$CREATE_RESUME_PAYLOAD" "$TOKEN")"
-assert_json_condition "$CREATE_RESUME_RESPONSE" "payload['title'] == 'Manual Resume'"
-RESUME_ID="$(parse_json_value "$CREATE_RESUME_RESPONSE" "id")"
-step_success "Manual resume created"
-
-log_step "List resumes"
-RESUMES_LIST="$(api_request GET "/resumes" "" "$TOKEN")"
-assert_json_condition "$RESUMES_LIST" "('items' in payload and payload['total'] >= 1) or ('data' in payload and isinstance(payload['data'], list))"
-step_success "Resumes listed"
-
-log_step "Get resume"
-RESUME_RESPONSE="$(api_request GET "/resumes/$RESUME_ID" "" "$TOKEN")"
-assert_json_condition "$RESUME_RESPONSE" "payload['id'] == '$RESUME_ID'"
-step_success "Resume fetched"
-
-log_step "Download resume"
-DOWNLOAD_CONTENT="$(api_request GET "/resumes/$RESUME_ID/download?format=txt" "" "$TOKEN")"
-if [[ -z "$DOWNLOAD_CONTENT" ]]; then
-  echo "Expected resume download content" >&2
+assert_json_condition "$COMPLETE_RESPONSE" "'resume_markdown' in payload"
+RESUME_MARKDOWN="$(parse_json_value "$COMPLETE_RESPONSE" "resume_markdown")"
+if [[ -z "$RESUME_MARKDOWN" ]]; then
+  echo "Expected resume markdown content" >&2
   exit 1
 fi
-step_success "Resume downloaded"
-
-log_step "Regenerate resume"
-REGENERATE_RESPONSE="$(api_request POST "/resumes/$RESUME_ID/regenerate" '{"template": "modern", "language": "en"}' "$TOKEN")"
-assert_json_condition "$REGENERATE_RESPONSE" "payload['id'] == '$RESUME_ID'"
-step_success "Resume regenerated"
+step_success "Interview session completed"
 
 log_step "Delete additional session"
 SECOND_SESSION="$(parse_json_value "$(api_request POST "/interview/sessions" '{}' "$TOKEN")" "id")"
@@ -270,4 +235,4 @@ step_success "Logout succeeded"
 printf '\nAll smoke tests finished successfully.\n'
 printf 'User: %s (%s)\n' "$USERNAME" "$EMAIL"
 printf 'Session: %s\n' "$SESSION_ID"
-printf 'Resume: %s\n' "$RESUME_ID"
+printf 'Resume Markdown (truncated): %.40s...\n' "$RESUME_MARKDOWN"

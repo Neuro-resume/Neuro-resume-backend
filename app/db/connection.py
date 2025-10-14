@@ -27,7 +27,7 @@ async def init_db() -> None:
 
     try:
         logger.info("Initializing database connection...")
-        
+
         # Create async engine
         engine = create_async_engine(
             settings.database_url,
@@ -69,12 +69,12 @@ async def close_db() -> None:
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
     Dependency function to get database session.
-    
+
     Usage in FastAPI:
         @app.get("/items")
         async def get_items(db: AsyncSession = Depends(get_db)):
             ...
-    
+
     Yields:
         AsyncSession: Database session for async operations
     """
@@ -96,7 +96,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 async def check_db_connection() -> bool:
     """
     Check if database connection is alive.
-    
+
     Returns:
         bool: True if connection is healthy, False otherwise
     """

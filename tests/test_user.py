@@ -27,38 +27,35 @@ class TestUserProfile:
         response = await client.get("/v1/user/profile")
         assert response.status_code == 403
 
-    async def test_update_profile_full_name(self, client: AsyncClient, auth_headers):
-        """Test updating full name."""
+    async def test_update_profile_username(self, client: AsyncClient, auth_headers):
+        """Test updating username."""
         response = await client.patch(
             "/v1/user/profile",
             headers=auth_headers,
-            json={"full_name": "John Doe"},
+            json={"username": "updated_user"},
         )
 
         assert response.status_code == 200
         data = response.json()
-        assert data["full_name"] == "John Doe"
+        assert data["username"] == "updated_user"
 
-    async def test_update_profile_phone(self, client: AsyncClient, auth_headers):
-        """Test updating phone number."""
+    async def test_update_profile_email(self, client: AsyncClient, auth_headers):
+        """Test updating email."""
         response = await client.patch(
             "/v1/user/profile",
             headers=auth_headers,
-            json={"phone": "+1234567890"},
+            json={"email": "updated@example.com"},
         )
 
         assert response.status_code == 200
         data = response.json()
-        assert data["phone"] == "+1234567890"
+        assert data["email"] == "updated@example.com"
 
-    async def test_update_profile_multiple_fields(
-        self, client: AsyncClient, auth_headers
-    ):
+    async def test_update_profile_multiple_fields(self, client: AsyncClient, auth_headers):
         """Test updating multiple fields at once."""
         update_data = {
-            "full_name": "Jane Smith",
-            "phone": "+9876543210",
-            "location": "New York, USA",
+            "username": "combo_user",
+            "email": "combo@example.com",
         }
 
         response = await client.patch(
@@ -69,13 +66,10 @@ class TestUserProfile:
 
         assert response.status_code == 200
         data = response.json()
-        assert data["full_name"] == update_data["full_name"]
-        assert data["phone"] == update_data["phone"]
-        assert data["location"] == update_data["location"]
+        assert data["username"] == update_data["username"]
+        assert data["email"] == update_data["email"]
 
-    async def test_update_profile_empty_request(
-        self, client: AsyncClient, auth_headers
-    ):
+    async def test_update_profile_empty_request(self, client: AsyncClient, auth_headers):
         """Test update with no fields (should succeed but change nothing)."""
         # Get original profile
         original = await client.get("/v1/user/profile", headers=auth_headers)
@@ -98,7 +92,7 @@ class TestUserProfile:
         """Test updating profile without authentication."""
         response = await client.patch(
             "/v1/user/profile",
-            json={"full_name": "Test"},
+            json={"username": "test"},
         )
         assert response.status_code == 403
 
@@ -115,7 +109,7 @@ class TestChangePassword:
             "/v1/user/change-password",
             headers=auth_headers,
             json={
-                "old_password": registered_user["password"],
+                "current_password": registered_user["password"],
                 "new_password": "newpassword123",
             },
         )
@@ -132,15 +126,13 @@ class TestChangePassword:
         )
         assert login_response.status_code == 200
 
-    async def test_change_password_wrong_old_password(
-        self, client: AsyncClient, auth_headers
-    ):
+    async def test_change_password_wrong_old_password(self, client: AsyncClient, auth_headers):
         """Test password change with wrong old password."""
         response = await client.post(
             "/v1/user/change-password",
             headers=auth_headers,
             json={
-                "old_password": "wrongpassword",
+                "current_password": "wrongpassword",
                 "new_password": "newpassword123",
             },
         )
@@ -156,7 +148,7 @@ class TestChangePassword:
             "/v1/user/change-password",
             headers=auth_headers,
             json={
-                "old_password": registered_user["password"],
+                "current_password": registered_user["password"],
                 "new_password": "123",  # Too short
             },
         )
@@ -168,19 +160,17 @@ class TestChangePassword:
         response = await client.post(
             "/v1/user/change-password",
             json={
-                "old_password": "oldpass",
+                "current_password": "oldpass",
                 "new_password": "newpass123",
             },
         )
         assert response.status_code == 403
 
-    async def test_change_password_missing_fields(
-        self, client: AsyncClient, auth_headers
-    ):
+    async def test_change_password_missing_fields(self, client: AsyncClient, auth_headers):
         """Test password change with missing fields."""
         response = await client.post(
             "/v1/user/change-password",
             headers=auth_headers,
-            json={"old_password": "test123"},  # Missing new_password
+            json={"current_password": "test123"},  # Missing new_password
         )
         assert response.status_code == 422

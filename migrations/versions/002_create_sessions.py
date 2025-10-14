@@ -23,7 +23,7 @@ def upgrade() -> None:
 
     # Create SessionStatus enum
     session_status_enum = postgresql.ENUM(
-        'IN_PROGRESS', 'COMPLETED', 'ABANDONED',
+        'in_progress', 'completed', 'abandoned',
         name='sessionstatus',
         create_type=False
     )
@@ -31,7 +31,7 @@ def upgrade() -> None:
 
     # Create Language enum
     language_enum = postgresql.ENUM(
-        'RU', 'EN',
+        'ru', 'en',
         name='language',
         create_type=False
     )
@@ -39,7 +39,7 @@ def upgrade() -> None:
 
     # Create MessageRole enum
     message_role_enum = postgresql.ENUM(
-        'USER', 'AI',
+        'user', 'ai',
         name='messagerole',
         create_type=False
     )
@@ -55,6 +55,7 @@ def upgrade() -> None:
         sa.Column('progress', postgresql.JSONB(
             astext_type=sa.Text()), nullable=False),
         sa.Column('message_count', sa.Integer(), nullable=False),
+        sa.Column('resume_markdown', sa.Text(), nullable=True),
         sa.Column('created_at', sa.DateTime(), nullable=False),
         sa.Column('updated_at', sa.DateTime(), nullable=False),
         sa.Column('completed_at', sa.DateTime(), nullable=True),

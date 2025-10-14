@@ -420,8 +420,8 @@ paths:
     post:
       tags:
         - interview
-      summary: Завершить интервью
-      description: Пометить интервью как завершенное и начать генерацию резюме
+    summary: Завершить интервью
+    description: Пометить интервью как завершенное и сохранить сгенерированный markdown резюме
       operationId: completeInterview
       security:
         - bearerAuth: []
@@ -443,10 +443,9 @@ paths:
                 properties:
                   session:
                     $ref: '#/components/schemas/InterviewSession'
-                  resumeId:
+                  resumeMarkdown:
                     type: string
-                    format: uuid
-                    description: ID созданного резюме
+                    description: Сгенерированный markdown с резюме
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -457,165 +456,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
-
-  /resumes:
-    get:
-      tags:
-        - resume
-      summary: Получить список резюме
-      description: Все резюме текущего пользователя
-      operationId: getResumes
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 20
-        - name: offset
-          in: query
-          schema:
-            type: integer
-            minimum: 0
-            default: 0
-      responses:
-        '200':
-          description: Список резюме
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Resume'
-                  pagination:
-                    $ref: '#/components/schemas/Pagination'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
-  /resumes/{resumeId}:
-    get:
-      tags:
-        - resume
-      summary: Получить резюме
-      description: Детальная информация о резюме
-      operationId: getResume
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: resumeId
-          in: path
-          required: true
-          description: ID резюме
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: Резюме успешно получено
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Resume'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /resumes/{resumeId}/download:
-    get:
-      tags:
-        - resume
-      summary: Скачать резюме
-      description: Получить резюме в выбранном формате
-      operationId: downloadResume
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: resumeId
-          in: path
-          required: true
-          description: ID резюме
-          schema:
-            type: string
-            format: uuid
-        - name: format
-          in: query
-          required: true
-          description: Формат файла
-          schema:
-            type: string
-            enum: [pdf, docx, txt]
-            example: pdf
-      responses:
-        '200':
-          description: Файл резюме
-          content:
-            application/pdf:
-              schema:
-                type: string
-                format: binary
-            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
-              schema:
-                type: string
-                format: binary
-            text/plain:
-              schema:
-                type: string
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
-
-  /resumes/{resumeId}/regenerate:
-    post:
-      tags:
-        - resume
-      summary: Перегенерировать резюме
-      description: Создать новую версию резюме на основе тех же данных интервью
-      operationId: regenerateResume
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: resumeId
-          in: path
-          required: true
-          description: ID резюме
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                template:
-                  type: string
-                  description: Шаблон для генерации
-                  enum: [modern, classic, minimal, creative]
-                  example: modern
-                language:
-                  type: string
-                  enum: [ru, en]
-                  example: ru
-      responses:
-        '200':
-          description: Резюме перегенерировано
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Resume'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
 
   /user/profile:
     get:

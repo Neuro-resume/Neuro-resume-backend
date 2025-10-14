@@ -11,8 +11,7 @@ app/handlers/
 ├── __init__.py          # Экспорт всех роутеров
 ├── auth.py              # Аутентификация
 ├── user.py              # Профиль пользователя
-├── interview.py         # Интервью-сессии
-└── resume.py            # Управление резюме
+└── interview.py         # Интервью-сессии и markdown-резюме
 ```
 
 ## Endpoints
@@ -39,15 +38,6 @@ app/handlers/
 -   `GET /interview/sessions/{sessionId}/messages` - История сообщений
 -   `POST /interview/sessions/{sessionId}/messages` - Отправить сообщение
 -   `POST /interview/sessions/{sessionId}/complete` - Завершить интервью
-
-### Resumes (`/v1/resumes`)
-
--   `GET /resumes` - Список резюме пользователя (с пагинацией)
--   `GET /resumes/{resumeId}` - Детали резюме
--   `PATCH /resumes/{resumeId}` - Обновить резюме
--   `DELETE /resumes/{resumeId}` - Удалить резюме
--   `GET /resumes/{resumeId}/download` - Скачать резюме (pdf, docx, txt)
--   `POST /resumes/{resumeId}/regenerate` - Перегенерировать резюме
 
 ## Авторизация
 
@@ -97,14 +87,6 @@ Authorization: Bearer <token>
 -   `delete_session()` - Удаление сессии
 -   `create_message()` - Создание сообщения в сессии
 -   `get_session_messages()` - Получение всех сообщений сессии
-
-### ResumeRepository (`app/repository/resume.py`)
-
--   `create_resume()` - Создание резюме
--   `get_resume_by_id()` - Получение по ID
--   `get_user_resumes()` - Список резюме пользователя (с пагинацией)
--   `update_resume()` - Обновление резюме
--   `delete_resume()` - Удаление резюме
 
 ## Примеры использования
 
@@ -160,11 +142,10 @@ curl -X POST http://localhost:8000/v1/interview/sessions/{sessionId}/messages \
     - В `interview.py`: метод `send_message()` использует placeholder ответ
     - Необходимо реализовать сервисный слой для работы с AI
 
-2. **Resume Generation**: Генерация резюме в различных форматах
+2. **Resume Generation**: Автоматическая генерация содержимого резюме в формате Markdown и экспорт в файлы
 
-    - В `resume.py`: метод `download_resume()` возвращает placeholder
-    - В `interview.py`: метод `complete_interview()` не генерирует реальное резюме
-    - Необходимо реализовать генерацию PDF/DOCX/TXT
+-   В `interview.py`: метод `complete_interview()` сохраняет placeholder markdown
+-   Необходимо интегрировать генерацию контента через AI и реализовать экспорт (PDF/DOCX/TXT)
 
 3. **Tests**: Написать unit-тесты для всех handlers и repositories
 

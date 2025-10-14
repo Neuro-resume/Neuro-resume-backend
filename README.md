@@ -67,8 +67,7 @@ make api-tests   # e2e smoke-тесты (scripts/test_api.sh)
 
 -   `/v1/auth/*` — аутентификация
 -   `/v1/user/*` — профиль
--   `/v1/interview/*` — интервью-сессии и сообщения
--   `/v1/resumes/*` — управление резюме
+-   `/v1/interview/*` — интервью-сессии, сообщения и markdown-резюме
 
 ## Тестирование
 

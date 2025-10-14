@@ -14,12 +14,13 @@ if __package__ in (None, ""):
 from app import __version__
 from app.config import settings
 from app.db.connection import check_db_connection, close_db, init_db
-from app.handlers import auth, interview, resume, user
+from app.handlers import auth, interview, user
 
 try:  # pragma: no cover - defensive patch for test expectations
     from httpx import Headers
 
     if not hasattr(Headers, "lower"):
+
         def _headers_lower(self):
             return "\n".join(f"{k}: {v}" for k, v in self.items()).lower()
 
@@ -81,7 +82,6 @@ app.add_middleware(
 app.include_router(auth.router, prefix="/v1")
 app.include_router(user.router, prefix="/v1")
 app.include_router(interview.router, prefix="/v1")
-app.include_router(resume.router, prefix="/v1")
 
 
 @app.get("/")
