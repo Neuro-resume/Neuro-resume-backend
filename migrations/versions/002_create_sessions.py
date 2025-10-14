@@ -36,15 +36,6 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Create interview_sessions and messages tables."""
-
-    # Create MessageRole enum
-    message_role_enum = postgresql.ENUM(
-        'user', 'ai',
-        name='messagerole',
-        create_type=False
-    )
-    message_role_enum.create(op.get_bind(), checkfirst=True)
-
     logger.info("миграция со string")
     # Create interview_sessions table
     op.create_table(
@@ -76,7 +67,7 @@ def upgrade() -> None:
         'messages',
         sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('session_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('role', message_role_enum, nullable=False),
+        sa.Column('role', sa.Text(), nullable=False),
         sa.Column('content', sa.Text(), nullable=False),
         sa.Column('metadata', postgresql.JSONB(
             astext_type=sa.Text()), nullable=True),
@@ -104,7 +95,3 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_interview_sessions_id'),
                   table_name='interview_sessions')
     op.drop_table('interview_sessions')
-
-    # Drop enums
-    sa.Enum(name='messagerole').drop(op.get_bind(), checkfirst=True)
-    sa.Enum(name='sessionstatus').drop(op.get_bind(), checkfirst=True)

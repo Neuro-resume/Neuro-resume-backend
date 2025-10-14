@@ -41,8 +41,7 @@ class InterviewSession(Base):
     user_id = Column(UUID(as_uuid=True), ForeignKey(
         "users.id"), nullable=False, index=True)
     status = Column(
-        Enum(SessionStatus, name="sessionstatus",
-             native_enum=True, create_constraint=True),
+        String(32),
         default="in_progress",
         nullable=False,
         index=True,
@@ -98,8 +97,7 @@ class Message(Base):
         UUID(as_uuid=True), ForeignKey("interview_sessions.id"), nullable=False, index=True
     )
     role = Column(
-        Enum(MessageRole, name="messagerole",
-             native_enum=True, create_constraint=True),
+        String(32),
         nullable=False,
     )
     content = Column(Text, nullable=False)
