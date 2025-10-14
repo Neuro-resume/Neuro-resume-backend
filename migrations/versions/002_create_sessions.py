@@ -5,11 +5,27 @@ Revises: 001_create_users
 Create Date: 2025-10-12 15:30:00.000000
 
 """
+import logging
+import sys
 from typing import Sequence, Union
 
 import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
+
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
+handler = logging.StreamHandler(sys.stdout)
+handler.setLevel(logging.DEBUG)
+
+# Форматирование сообщений
+formatter = logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+handler.setFormatter(formatter)
+
+# Добавление обработчика к логгеру
+logger.addHandler(handler)
 
 # revision identifiers, used by Alembic.
 revision: str = '002_create_sessions'
@@ -21,14 +37,6 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """Create interview_sessions and messages tables."""
 
-    # Create SessionStatus enum
-    session_status_enum = postgresql.ENUM(
-        'in_progress', 'completed', 'abandoned',
-        name='sessionstatus',
-        create_type=False
-    )
-    session_status_enum.create(op.get_bind(), checkfirst=True)
-
     # Create MessageRole enum
     message_role_enum = postgresql.ENUM(
         'user', 'ai',
@@ -37,12 +45,13 @@ def upgrade() -> None:
     )
     message_role_enum.create(op.get_bind(), checkfirst=True)
 
+    logger.info("миграция со string")
     # Create interview_sessions table
     op.create_table(
         'interview_sessions',
         sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('user_id', postgresql.UUID(as_uuid=True), nullable=False),
-        sa.Column('status', session_status_enum, nullable=False),
+        sa.Column('status', sa.String(), nullable=False),
         sa.Column('progress', postgresql.JSONB(
             astext_type=sa.Text()), nullable=False),
         sa.Column('message_count', sa.Integer(), nullable=False),
