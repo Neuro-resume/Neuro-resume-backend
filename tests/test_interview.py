@@ -133,6 +133,21 @@ class TestSessionMessages:
         assert data["ai_response"]["role"] == "ai"
         assert len(data["ai_response"]["content"]) > 0
 
+        # Progress should advance but not hit 100 during conversation
+        first_progress = data["progress"]["percentage"]
+        assert 0 < first_progress < 100
+
+        # Sending another message should increase the progress percentage
+        response = await client.post(
+            f"/v1/interview/sessions/{session_id}/messages",
+            headers=auth_headers,
+            json={"content": "More details about my experience"},
+        )
+        assert response.status_code == 200
+        second_progress = response.json()["progress"]["percentage"]
+        assert second_progress >= first_progress
+        assert second_progress < 100
+
     async def test_send_message_to_nonexistent_session(self, client: AsyncClient, auth_headers):
         """Test sending message to non-existent session."""
         fake_uuid = "00000000-0000-0000-0000-000000000000"
@@ -211,6 +226,7 @@ class TestSessionCompletion:
         assert resume_payload["content"].strip()
         assert resume_payload["mime_type"] == "text/markdown"
         assert resume_payload["filename"].endswith(".md")
+        assert data["session"]["progress"]["percentage"] == 100
 
         # Fetch resume via dedicated endpoint
         resume_response = await client.get(

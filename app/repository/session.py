@@ -1,6 +1,8 @@
 """Interview session and message repository."""
 
 import logging
+import math
+import random
 import uuid
 from typing import List, Optional
 
@@ -115,32 +117,51 @@ class SessionRepository:
 
         return list(sessions), total
 
-    async def update_session_progress(
+    async def advance_session_progress(
         self,
         session_id: uuid.UUID,
-        percentage: Optional[int] = None,
+        *,
+        force_complete: bool = False,
     ) -> Optional[InterviewSession]:
-        """Update session progress.
+        """Advance session progress using adaptive rules.
 
-        Args:
-            session_id: Session ID
-            percentage: Completion percentage (0-100)
-
-        Returns:
-            Updated session if found, None otherwise
+        Progress follows a saturating curve so users see steady growth even
+        without knowing the total number of questions. Once a session is
+        completed, progress is forced to 100.
         """
+
         session_obj = await self.get_session_by_id(session_id)
         if not session_obj:
             return None
 
-        progress_data = session_obj.progress or {}
+        current_percentage = (session_obj.progress or {}).get("percentage", 0)
 
-        if percentage is not None:
-            progress_data["percentage"] = percentage
+        if force_complete or session_obj.status == SessionStatus.COMPLETED:
+            new_percentage = 100
+        else:
+            message_pairs = max(session_obj.message_count // 2, 0)
+            growth = 1 - math.exp(-0.4 * max(message_pairs, 1))
 
-        # Ensure only supported keys remain in progress payload
-        session_obj.progress = {
-            "percentage": progress_data.get("percentage", 0)}
+            # Inject slight deterministic jitter so different sessions diverge a little.
+            if message_pairs > 0:
+                seed = session_obj.id.int ^ (message_pairs << 8)
+                jitter_rng = random.Random(seed)
+                jitter = jitter_rng.uniform(-2.0, 4.0)
+            else:
+                jitter = 0.0
+
+            target = int(round(95 * growth + jitter))
+
+            # Ensure the bar only moves forward and never jumps backwards or to 100 prematurely.
+            minimum_step = 3 if current_percentage < 85 else 1
+            new_percentage = max(current_percentage, target)
+            if new_percentage - current_percentage < minimum_step:
+                new_percentage = min(current_percentage + minimum_step, 95)
+
+            new_percentage = max(min(new_percentage, 95),
+                                 5 if message_pairs > 0 else 0)
+
+        session_obj.progress = {"percentage": new_percentage}
         await self.session.commit()
         await self.session.refresh(session_obj)
         return session_obj
@@ -170,6 +191,9 @@ class SessionRepository:
         if resume_markdown is not None:
             session_obj.resume_markdown = resume_markdown
             session_obj.resume_format = resume_format
+
+        # Ensure progress reaches 100 for completed sessions.
+        session_obj.progress = {"percentage": 100}
 
         await self.session.commit()
         await self.session.refresh(session_obj)

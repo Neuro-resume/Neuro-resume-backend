@@ -259,11 +259,8 @@ async def send_message(
         session_id=session_id, role=MessageRole.AI, content=ai_response_content
     )
 
-    # Update progress (placeholder logic)
-    current_progress = session.progress or {}
-    current_percentage = current_progress.get("percentage", 0)
-    new_percentage = min(current_percentage + 10, 100)
-    await repo.update_session_progress(session_id=session_id, percentage=new_percentage)
+    # Update progress using adaptive repository logic
+    await repo.advance_session_progress(session_id=session_id)
 
     # Get updated session for progress
     updated_session = await repo.get_session_by_id(session_id)
