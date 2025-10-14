@@ -236,19 +236,6 @@ paths:
       operationId: createInterviewSession
       security:
         - bearerAuth: []
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                language:
-                  type: string
-                  description: Язык интервью
-                  enum: [ru, en]
-                  default: ru
-                  example: ru
       responses:
         '201':
           description: Сессия успешно создана
@@ -401,14 +388,6 @@ paths:
                         minimum: 0
                         maximum: 100
                         example: 45
-                      completedSections:
-                        type: array
-                        items:
-                          type: string
-                        example: [personal_info, work_experience]
-                      currentSection:
-                        type: string
-                        example: skills
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -634,10 +613,6 @@ components:
           type: string
           enum: [in_progress, completed, abandoned]
           example: in_progress
-        language:
-          type: string
-          enum: [ru, en]
-          example: ru
         progress:
           type: object
           properties:
@@ -646,14 +621,7 @@ components:
               minimum: 0
               maximum: 100
               example: 60
-            completedSections:
-              type: array
-              items:
-                type: string
-              example: [personal_info, work_experience, education]
-            currentSection:
-              type: string
-              example: skills
+          additionalProperties: false
         messageCount:
           type: integer
           example: 15
