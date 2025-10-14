@@ -29,14 +29,6 @@ def upgrade() -> None:
     )
     session_status_enum.create(op.get_bind(), checkfirst=True)
 
-    # Create Language enum
-    language_enum = postgresql.ENUM(
-        'ru', 'en',
-        name='language',
-        create_type=False
-    )
-    language_enum.create(op.get_bind(), checkfirst=True)
-
     # Create MessageRole enum
     message_role_enum = postgresql.ENUM(
         'user', 'ai',
@@ -51,7 +43,6 @@ def upgrade() -> None:
         sa.Column('id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('user_id', postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column('status', session_status_enum, nullable=False),
-        sa.Column('language', language_enum, nullable=False),
         sa.Column('progress', postgresql.JSONB(
             astext_type=sa.Text()), nullable=False),
         sa.Column('message_count', sa.Integer(), nullable=False),
@@ -107,5 +98,4 @@ def downgrade() -> None:
 
     # Drop enums
     sa.Enum(name='messagerole').drop(op.get_bind(), checkfirst=True)
-    sa.Enum(name='language').drop(op.get_bind(), checkfirst=True)
     sa.Enum(name='sessionstatus').drop(op.get_bind(), checkfirst=True)

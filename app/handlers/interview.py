@@ -10,8 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.connection import get_db
 from app.models.common import not_found_error_response
-from app.models.session import (CompleteSessionResponse, Language,
-                                MessageCreate, MessageResponse, ProgressInfo,
+from app.models.session import (CompleteSessionResponse, MessageCreate,
+                                MessageResponse, ProgressInfo,
                                 ResumeMarkdownPayload, SendMessageResponse,
                                 SessionCreate, SessionResponse, SessionStatus)
 from app.repository.session import SessionRepository
@@ -86,8 +86,7 @@ async def create_interview_session(
     """
     repo = SessionRepository(db)
 
-    language = session_data.language if session_data else Language.RU
-    session = await repo.create_session(user_id=uuid.UUID(current_user_id), language=language)
+    session = await repo.create_session(user_id=uuid.UUID(current_user_id))
 
     logger.info(
         f"Created interview session: {session.id} for user {current_user_id}")
@@ -261,13 +260,15 @@ async def send_message(
     )
 
     # Update progress (placeholder logic)
-    current_percentage = session.progress.get("percentage", 0)
+    current_progress = session.progress or {}
+    current_percentage = current_progress.get("percentage", 0)
     new_percentage = min(current_percentage + 10, 100)
     await repo.update_session_progress(session_id=session_id, percentage=new_percentage)
 
     # Get updated session for progress
     updated_session = await repo.get_session_by_id(session_id)
-    progress = ProgressInfo(**updated_session.progress)
+    progress_payload = updated_session.progress or {}
+    progress = ProgressInfo(**progress_payload)
 
     logger.info(f"Processed message exchange in session: {session_id}")
 

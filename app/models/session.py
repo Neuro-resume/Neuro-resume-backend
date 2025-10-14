@@ -3,7 +3,7 @@
 import enum
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy import (Column, DateTime, Enum, ForeignKey, Integer,
@@ -30,13 +30,6 @@ class MessageRole(str, enum.Enum):
     AI = "ai"
 
 
-class Language(str, enum.Enum):
-    """Supported languages."""
-
-    RU = "ru"
-    EN = "en"
-
-
 # SQLAlchemy Models
 class InterviewSession(Base):
     """Interview session database model."""
@@ -54,12 +47,6 @@ class InterviewSession(Base):
         nullable=False,
         index=True,
     )
-    language = Column(
-        Enum(Language, name="language", native_enum=True, create_constraint=True),
-        default=Language.RU,
-        nullable=False,
-    )
-    # {percentage, completedSections, currentSection}
     progress = Column(JSONB, default=dict, nullable=False)
     message_count = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -132,37 +119,19 @@ class ProgressInfo(BaseModel):
     """Progress information schema."""
 
     percentage: int = Field(
-        0, ge=0, le=100, description="Completion percentage")
-    completed_sections: List[str] = Field(
-        default_factory=list, description="Completed sections")
-    current_section: Optional[str] = Field(None, description="Current section")
+        0, ge=0, le=100, description="Completion percentage"
+    )
 
-    @model_validator(mode="before")
-    @classmethod
-    def allow_camel_case_keys(cls, value: Any) -> Any:
-        """Support legacy camelCase payloads while emitting snake_case."""
-        if isinstance(value, dict):
-            if "completedSections" in value and "completed_sections" not in value:
-                value["completed_sections"] = value.pop("completedSections")
-            if "currentSection" in value and "current_section" not in value:
-                value["current_section"] = value.pop("currentSection")
-        return value
+    model_config = ConfigDict(extra="ignore")
 
 
-class SessionBase(BaseModel):
-    """Base session schema."""
-
-    language: Language = Field(
-        default=Language.RU, description="Interview language")
-
-
-class SessionCreate(SessionBase):
+class SessionCreate(BaseModel):
     """Schema for creating a new session."""
 
     pass
 
 
-class SessionResponse(SessionBase):
+class SessionResponse(BaseModel):
     """Session schema for API responses."""
 
     id: uuid.UUID

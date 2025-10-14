@@ -171,7 +171,7 @@ curl -X POST http://localhost:8000/v1/auth/login \
 curl -X POST http://localhost:8000/v1/interview/sessions \
   -H "Authorization: Bearer YOUR_TOKEN_HERE" \
   -H "Content-Type: application/json" \
-  -d '{"language": "ru"}'
+  -d '{}'
 ```
 
 ### Получить профиль

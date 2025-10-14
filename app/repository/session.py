@@ -7,8 +7,8 @@ from typing import List, Optional
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.session import (InterviewSession, Language, Message,
-                                MessageRole, SessionStatus)
+from app.models.session import (InterviewSession, Message, MessageRole,
+                                SessionStatus)
 
 logger = logging.getLogger(__name__)
 
@@ -25,26 +25,20 @@ class SessionRepository:
         self.session = session
 
     async def create_session(
-        self, user_id: uuid.UUID, language: Language = Language.RU
+        self, user_id: uuid.UUID
     ) -> InterviewSession:
         """Create a new interview session.
 
         Args:
             user_id: User ID
-            language: Session language
 
         Returns:
             Created session
         """
         session_obj = InterviewSession(
             user_id=user_id,
-            language=language,
             status=SessionStatus.IN_PROGRESS,
-            progress={
-                "percentage": 0,
-                "completed_sections": [],
-                "current_section": None,
-            },
+            progress={"percentage": 0},
             message_count=0,
             resume_content=None,
             resume_format=None,
@@ -125,16 +119,12 @@ class SessionRepository:
         self,
         session_id: uuid.UUID,
         percentage: Optional[int] = None,
-        completed_sections: Optional[List[str]] = None,
-        current_section: Optional[str] = None,
     ) -> Optional[InterviewSession]:
         """Update session progress.
 
         Args:
             session_id: Session ID
             percentage: Completion percentage (0-100)
-            completed_sections: List of completed sections
-            current_section: Current section name
 
         Returns:
             Updated session if found, None otherwise
@@ -143,22 +133,14 @@ class SessionRepository:
         if not session_obj:
             return None
 
-        progress = session_obj.progress or {}
-
-        # Normalize any legacy camelCase keys before updating
-        if "completedSections" in progress and "completed_sections" not in progress:
-            progress["completed_sections"] = progress.pop("completedSections")
-        if "currentSection" in progress and "current_section" not in progress:
-            progress["current_section"] = progress.pop("currentSection")
+        progress_data = session_obj.progress or {}
 
         if percentage is not None:
-            progress["percentage"] = percentage
-        if completed_sections is not None:
-            progress["completed_sections"] = completed_sections
-        if current_section is not None:
-            progress["current_section"] = current_section
+            progress_data["percentage"] = percentage
 
-        session_obj.progress = progress
+        # Ensure only supported keys remain in progress payload
+        session_obj.progress = {
+            "percentage": progress_data.get("percentage", 0)}
         await self.session.commit()
         await self.session.refresh(session_obj)
         return session_obj

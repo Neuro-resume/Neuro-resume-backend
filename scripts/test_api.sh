@@ -182,7 +182,7 @@ TOKEN="$(parse_json_value "$LOGIN_RESPONSE" "token")"
 step_success "Login with new password succeeded"
 
 log_step "Create interview session"
-SESSION_RESPONSE="$(api_request POST "/interview/sessions" '{"language": "en"}' "$TOKEN")"
+SESSION_RESPONSE="$(api_request POST "/interview/sessions" '{}' "$TOKEN")"
 assert_json_condition "$SESSION_RESPONSE" "payload['status'] == 'in_progress'"
 SESSION_ID="$(parse_json_value "$SESSION_RESPONSE" "id")"
 step_success "Interview session created"

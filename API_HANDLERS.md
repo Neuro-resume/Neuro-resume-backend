@@ -123,7 +123,7 @@ curl -X POST http://localhost:8000/v1/auth/register \
 curl -X POST http://localhost:8000/v1/interview/sessions \
   -H "Authorization: Bearer <your-token>" \
   -H "Content-Type: application/json" \
-  -d '{"language": "ru"}'
+  -d '{}'
 ```
 
 ### Отправка сообщения
