@@ -420,8 +420,8 @@ paths:
     post:
       tags:
         - interview
-    summary: Завершить интервью
-    description: Пометить интервью как завершенное и сохранить сгенерированный markdown резюме
+      summary: Завершить интервью
+      description: Пометить интервью как завершенное и сохранить сгенерированный markdown резюме
       operationId: completeInterview
       security:
         - bearerAuth: []
@@ -444,8 +444,7 @@ paths:
                   session:
                     $ref: '#/components/schemas/InterviewSession'
                   resumeMarkdown:
-                    type: string
-                    description: Сгенерированный markdown с резюме
+                    $ref: '#/components/schemas/ResumeMarkdown'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -456,6 +455,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+
+  /interview/sessions/{sessionId}/resume:
+    get:
+      tags:
+        - interview
+      summary: Получить резюме сессии
+      description: Возвращает markdown-файл, сгенерированный после завершения интервью
+      operationId: downloadSessionResume
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          description: ID сессии интервью
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Markdown резюме
+          content:
+            text/markdown:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /user/profile:
     get:
@@ -642,6 +670,8 @@ components:
           format: date-time
           nullable: true
           example: null
+        resumeMarkdown:
+          $ref: '#/components/schemas/ResumeMarkdown'
 
     Message:
       type: object
@@ -655,7 +685,9 @@ components:
           format: uuid
         role:
           type: string
-          enum: [user, ai]
+          enum:
+            - user
+            - ai
           example: ai
         content:
           type: string
@@ -672,6 +704,22 @@ components:
           type: string
           format: date-time
           example: 2025-10-12T10:15:00Z
+
+    ResumeMarkdown:
+      type: object
+      properties:
+        content:
+          type: string
+          description: Markdown-содержимое сгенерированного резюме
+          example: "# Resume for demo_user\n\n- Email: demo@example.com"
+        mime_type:
+          type: string
+          description: MIME-тип содержимого
+          example: text/markdown
+        filename:
+          type: string
+          description: Рекомендуемое имя файла для сохранения
+          example: resume.md
 
     Resume:
       type: object

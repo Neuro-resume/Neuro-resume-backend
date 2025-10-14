@@ -215,13 +215,23 @@ step_success "Message history contains user and AI messages"
 
 log_step "Complete interview"
 COMPLETE_RESPONSE="$(api_request POST "/interview/sessions/$SESSION_ID/complete" "" "$TOKEN")"
-assert_json_condition "$COMPLETE_RESPONSE" "'resume_markdown' in payload"
-RESUME_MARKDOWN="$(parse_json_value "$COMPLETE_RESPONSE" "resume_markdown")"
+assert_json_condition "$COMPLETE_RESPONSE" "payload['resume_markdown']['content']"
+RESUME_MARKDOWN="$(parse_json_value "$COMPLETE_RESPONSE" "resume_markdown.content")"
+RESUME_FILENAME="$(parse_json_value "$COMPLETE_RESPONSE" "resume_markdown.filename")"
+RESUME_MIME="$(parse_json_value "$COMPLETE_RESPONSE" "resume_markdown.mime_type")"
 if [[ -z "$RESUME_MARKDOWN" ]]; then
   echo "Expected resume markdown content" >&2
   exit 1
 fi
 step_success "Interview session completed"
+
+log_step "Download resume via dedicated endpoint"
+RESUME_DOWNLOAD="$(api_request GET "/interview/sessions/$SESSION_ID/resume" "" "$TOKEN")"
+if [[ -z "$RESUME_DOWNLOAD" ]]; then
+  echo "Expected resume download content" >&2
+  exit 1
+fi
+step_success "Resume endpoint returned markdown"
 
 log_step "Delete additional session"
 SECOND_SESSION="$(parse_json_value "$(api_request POST "/interview/sessions" '{}' "$TOKEN")" "id")"
@@ -235,4 +245,6 @@ step_success "Logout succeeded"
 printf '\nAll smoke tests finished successfully.\n'
 printf 'User: %s (%s)\n' "$USERNAME" "$EMAIL"
 printf 'Session: %s\n' "$SESSION_ID"
+printf 'Resume File: %s (%s)\n' "$RESUME_FILENAME" "$RESUME_MIME"
+printf 'Resume Preview: %.40s...\n' "$RESUME_DOWNLOAD"
 printf 'Resume Markdown (truncated): %.40s...\n' "$RESUME_MARKDOWN"
