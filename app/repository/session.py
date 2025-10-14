@@ -46,7 +46,8 @@ class SessionRepository:
                 "current_section": None,
             },
             message_count=0,
-            resume_markdown=None,
+            resume_content=None,
+            resume_format=None,
         )
         self.session.add(session_obj)
         await self.session.commit()
@@ -163,7 +164,10 @@ class SessionRepository:
         return session_obj
 
     async def complete_session(
-        self, session_id: uuid.UUID, resume_markdown: Optional[str] = None
+        self,
+        session_id: uuid.UUID,
+        resume_markdown: Optional[str] = None,
+        resume_format: str = "text/markdown",
     ) -> Optional[InterviewSession]:
         """Mark session as completed and optionally persist resume markdown.
 
@@ -183,6 +187,7 @@ class SessionRepository:
         session_obj.completed_at = datetime.utcnow()
         if resume_markdown is not None:
             session_obj.resume_markdown = resume_markdown
+            session_obj.resume_format = resume_format
 
         await self.session.commit()
         await self.session.refresh(session_obj)
