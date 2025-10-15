@@ -40,6 +40,9 @@ class InterviewSession(Base):
                 default=uuid.uuid4, index=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey(
         "users.id"), nullable=False, index=True)
+    llm_conversation_id = Column(
+        UUID(as_uuid=True), default=uuid.uuid4, nullable=False, index=True
+    )
     status = Column(
         String(32),
         default=SessionStatus.IN_PROGRESS.value,
@@ -134,6 +137,7 @@ class SessionResponse(BaseModel):
 
     id: uuid.UUID
     user_id: uuid.UUID
+    llm_conversation_id: uuid.UUID
     status: SessionStatus
     progress: ProgressInfo
     message_count: int

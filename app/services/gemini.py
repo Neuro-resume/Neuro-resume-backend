@@ -55,9 +55,32 @@ class GeminiInterviewService:
                 logger.warning("Failed to initialize Gemini client: %s", exc)
                 self._enabled = False
 
+    async def generate_intro(
+        self,
+        conversation_id: str,
+        *,
+        welcome_context: str,
+    ) -> GeminiTurn:
+        """Produce a greeting turn for a fresh conversation."""
+
+        if self._enabled and self._client is not None:
+            try:
+                return await self._call_gemini(
+                    conversation_id=conversation_id,
+                    messages=(),
+                    preface=welcome_context,
+                )
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.warning(
+                    "Gemini intro call failed, using fallback conversation: %s",
+                    exc,
+                )
+
+        return self._fallback_intro(conversation_id=conversation_id)
+
     async def process_turn(
         self,
-        session_id: str,
+        conversation_id: str,
         messages: Sequence[Message],
     ) -> GeminiTurn:
         """Generate the next AI turn based on conversation history."""
@@ -65,21 +88,33 @@ class GeminiInterviewService:
         # Attempt real Gemini call when configured, otherwise fallback.
         if self._enabled and self._client is not None:
             try:
-                return await self._call_gemini(session_id=session_id, messages=messages)
+                return await self._call_gemini(
+                    conversation_id=conversation_id,
+                    messages=messages,
+                )
             except Exception as exc:  # pragma: no cover - fallback safety
                 logger.warning(
                     "Gemini call failed, using fallback conversation: %s", exc)
 
-        return self._fallback_turn(session_id=session_id, messages=messages)
+        return self._fallback_turn(
+            conversation_id=conversation_id,
+            messages=messages,
+        )
 
     async def _call_gemini(
         self,
-        session_id: str,
+        conversation_id: str,
         messages: Sequence[Message],
+        *,
+        preface: Optional[str] = None,
     ) -> GeminiTurn:
         """Invoke Gemini model and parse structured response."""
 
-        prompt = self._build_prompt(session_id=session_id, messages=messages)
+        prompt = self._build_prompt(
+            conversation_id=conversation_id,
+            messages=messages,
+            preface=preface,
+        )
         loop = asyncio.get_running_loop()
 
         def _invoke() -> Any:
@@ -101,7 +136,10 @@ class GeminiInterviewService:
             payload = json.loads(raw)
         except json.JSONDecodeError:
             logger.warning("Gemini returned non-JSON payload, using fallback.")
-            return self._fallback_turn(session_id=session_id, messages=messages)
+            return self._fallback_turn(
+                conversation_id=conversation_id,
+                messages=messages,
+            )
 
         ai_message = payload.get(
             "assistant_message") or payload.get("question")
@@ -120,7 +158,10 @@ class GeminiInterviewService:
         if not isinstance(progress_state, dict):
             progress_state = {}
         if not ai_message:
-            return self._fallback_turn(session_id=session_id, messages=messages)
+            return self._fallback_turn(
+                conversation_id=conversation_id,
+                messages=messages,
+            )
 
         progress_state = self._normalise_progress_state(
             progress_state, completed, messages)
@@ -135,7 +176,7 @@ class GeminiInterviewService:
 
     def _fallback_turn(
         self,
-        session_id: str,
+        conversation_id: str,
         messages: Sequence[Message],
     ) -> GeminiTurn:
         """Heuristic interviewer that keeps behaviour deterministic per session."""
@@ -146,7 +187,10 @@ class GeminiInterviewService:
             m.role) == MessageRole.AI]
         stage = len(ai_messages)
 
-        question = self._select_question(session_id=session_id, stage=stage)
+        question = self._select_question(
+            conversation_id=conversation_id,
+            stage=stage,
+        )
         progress_state = self._construct_progress_state(
             stage=stage, user_messages=user_messages)
 
@@ -188,9 +232,23 @@ class GeminiInterviewService:
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
-    def _select_question(self, session_id: str, stage: int) -> Optional[str]:
+    def _fallback_intro(self, conversation_id: str) -> GeminiTurn:
+        rng = random.Random(int(conversation_id.replace("-", ""), 16))
+        openers = (
+            "Привет! Я карьерный ассистент NeuroResume. Давайте вместе соберём сильное резюме. Расскажите, какая роль вас интересует и чего хотите добиться?",
+            "Здравствуйте! Я помогу структурировать ваш опыт и цели. С чего начнём: какую позицию или направление вы рассматриваете сейчас?",
+            "Рад знакомству! Я здесь, чтобы системно оформить ваши достижения. Расскажите, на какую роль нацелены и что важно подчеркнуть?",
+        )
+        message = rng.choice(openers)
+        return GeminiTurn(
+            ai_message=message,
+            progress_state={"percentage": 0},
+            completed=False,
+        )
+
+    def _select_question(self, conversation_id: str, stage: int) -> Optional[str]:
         order = list(self._question_bank)
-        rng = random.Random(int(session_id.replace("-", ""), 16))
+        rng = random.Random(int(conversation_id.replace("-", ""), 16))
         rng.shuffle(order)
         if stage < len(order):
             return order[stage]
@@ -250,13 +308,19 @@ class GeminiInterviewService:
         words = [w.strip(",.;:!?") for w in text.split() if len(w) > 4]
         return words[0].lower() if words else ""
 
-    def _build_prompt(self, session_id: str, messages: Sequence[Message]) -> str:
+    def _build_prompt(
+        self,
+        conversation_id: str,
+        messages: Sequence[Message],
+        *,
+        preface: Optional[str] = None,
+    ) -> str:
         history_lines: List[str] = []
         for message in messages:
             prefix = "Пользователь" if message.role == MessageRole.USER else "AI"
             history_lines.append(f"{prefix}: {message.content}")
         joined_history = "\n".join(history_lines[-20:])
-        return (
+        base_instruction = (
             "Ты — ассистент по карьерному интервью. "
             "Твоя задача — задавать уточняющие вопросы, собирать информацию и, когда данных достаточно,"  # noqa: E501
             " сформировать итоговое резюме.\n"
@@ -266,11 +330,14 @@ class GeminiInterviewService:
             "progress_state: объект с числовым полем percentage;\n"
             "resume_markdown: markdown-резюме (только если completed=true);\n"
             "metadata: краткий разбор или ключевые слова.\n"
-            f"ID сессии: {session_id}.\n"
+            f"ID диалога: {conversation_id}.\n"
             "История диалога:\n"
             f"{joined_history}\n"
             "Ответь строго в JSON без пояснений."
         )
+        if preface:
+            return f"{preface.strip()}\n\n{base_instruction}"
+        return base_instruction
 
     def _build_resume_markdown(self, user_messages: Sequence[Message]) -> str:
         answers = [msg.content.strip()

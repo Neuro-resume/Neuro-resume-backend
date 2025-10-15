@@ -36,6 +36,8 @@ services:
       APP_ENV: production
       DEBUG: "0"
       PORT: 8000
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
     ports:
       - "8000:8000"
 

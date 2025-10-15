@@ -17,9 +17,11 @@ class TestInterviewSessions:
 
         assert "id" in data
         assert "user_id" in data
+        assert "llm_conversation_id" in data
         assert data["status"] == "IN_PROGRESS"
         assert "created_at" in data
-        assert data["message_count"] == 0
+        assert data["message_count"] == 1
+        assert data["progress"]["percentage"] >= 0
 
     async def test_create_session_unauthorized(self, client: AsyncClient):
         """Test creating session without authentication."""
@@ -203,8 +205,11 @@ class TestSessionMessages:
 
         assert response.status_code == 200
         data = response.json()
-        # Should have 4 messages: 2 user + 2 assistant responses
-        assert len(data["messages"]) >= 2
+        # Should include the initial assistant greeting + pairs of user/AI replies
+        assert len(data["messages"]) >= 3
+        first_message = data["messages"][0]
+        assert first_message["role"] == "ai"
+        assert first_message["content"].strip() != ""
         assert data["session_id"] == session_id
 
 
