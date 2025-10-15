@@ -183,7 +183,7 @@ step_success "Login with new password succeeded"
 
 log_step "Create interview session"
 SESSION_RESPONSE="$(api_request POST "/interview/sessions" '{}' "$TOKEN")"
-assert_json_condition "$SESSION_RESPONSE" "payload['status'] == 'in_progress'"
+assert_json_condition "$SESSION_RESPONSE" "payload['status'] == 'IN_PROGRESS'"
 SESSION_ID="$(parse_json_value "$SESSION_RESPONSE" "id")"
 step_success "Interview session created"
 
