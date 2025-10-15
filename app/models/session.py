@@ -40,9 +40,12 @@ class InterviewSession(Base):
                 default=uuid.uuid4, index=True)
     user_id = Column(UUID(as_uuid=True), ForeignKey(
         "users.id"), nullable=False, index=True)
+    llm_conversation_id = Column(
+        UUID(as_uuid=True), default=uuid.uuid4, nullable=False, index=True
+    )
     status = Column(
         String(32),
-        default="in_progress",
+        default=SessionStatus.IN_PROGRESS.value,
         nullable=False,
         index=True,
     )
@@ -134,6 +137,7 @@ class SessionResponse(BaseModel):
 
     id: uuid.UUID
     user_id: uuid.UUID
+    llm_conversation_id: uuid.UUID
     status: SessionStatus
     progress: ProgressInfo
     message_count: int
@@ -195,14 +199,6 @@ class MessageResponse(BaseModel):
         return value
 
 
-class SendMessageResponse(BaseModel):
-    """Response after sending a message."""
-
-    user_message: MessageResponse
-    ai_response: MessageResponse
-    progress: ProgressInfo
-
-
 class ResumeMarkdownPayload(BaseModel):
     """Metadata and content for generated markdown resume."""
 
@@ -216,6 +212,16 @@ class ResumeMarkdownPayload(BaseModel):
         default="resume.md",
         description="Suggested filename for downloading the generated resume",
     )
+
+
+class SendMessageResponse(BaseModel):
+    """Response after sending a message."""
+
+    user_message: MessageResponse
+    ai_response: MessageResponse
+    progress: ProgressInfo
+    session_status: SessionStatus
+    resume_markdown: Optional[ResumeMarkdownPayload] = None
 
 
 class CompleteSessionResponse(BaseModel):

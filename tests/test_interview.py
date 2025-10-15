@@ -17,9 +17,11 @@ class TestInterviewSessions:
 
         assert "id" in data
         assert "user_id" in data
+        assert "llm_conversation_id" in data
         assert data["status"] == "IN_PROGRESS"
         assert "created_at" in data
-        assert data["message_count"] == 0
+        assert data["message_count"] == 1
+        assert data["progress"]["percentage"] >= 0
 
     async def test_create_session_unauthorized(self, client: AsyncClient):
         """Test creating session without authentication."""
@@ -124,6 +126,8 @@ class TestSessionMessages:
         data = response.json()
         assert "user_message" in data
         assert "ai_response" in data
+        assert "session_status" in data
+        assert "resume_markdown" in data
 
         # User message
         assert data["user_message"]["role"] == "user"
@@ -132,6 +136,8 @@ class TestSessionMessages:
         # AI response (placeholder for now)
         assert data["ai_response"]["role"] == "ai"
         assert len(data["ai_response"]["content"]) > 0
+        assert data["session_status"] == "IN_PROGRESS"
+        assert data["resume_markdown"] is None
 
         # Progress should advance but not hit 100 during conversation
         first_progress = data["progress"]["percentage"]
@@ -144,9 +150,12 @@ class TestSessionMessages:
             json={"content": "More details about my experience"},
         )
         assert response.status_code == 200
-        second_progress = response.json()["progress"]["percentage"]
+        second_response = response.json()
+        second_progress = second_response["progress"]["percentage"]
         assert second_progress >= first_progress
         assert second_progress < 100
+        assert second_response["session_status"] == "IN_PROGRESS"
+        assert second_response["resume_markdown"] is None
 
     async def test_send_message_to_nonexistent_session(self, client: AsyncClient, auth_headers):
         """Test sending message to non-existent session."""
@@ -196,8 +205,11 @@ class TestSessionMessages:
 
         assert response.status_code == 200
         data = response.json()
-        # Should have 4 messages: 2 user + 2 assistant responses
-        assert len(data["messages"]) >= 2
+        # Should include the initial assistant greeting + pairs of user/AI replies
+        assert len(data["messages"]) >= 3
+        first_message = data["messages"][0]
+        assert first_message["role"] == "ai"
+        assert first_message["content"].strip() != ""
         assert data["session_id"] == session_id
 
 
