@@ -17,7 +17,7 @@ class TestInterviewSessions:
 
         assert "id" in data
         assert "user_id" in data
-        assert data["status"] == "in_progress"
+        assert data["status"] == "IN_PROGRESS"
         assert "created_at" in data
         assert data["message_count"] == 0
 
@@ -220,7 +220,7 @@ class TestSessionCompletion:
         data = response.json()
         assert "session" in data
         assert "resume_markdown" in data
-        assert data["session"]["status"] == "completed"
+        assert data["session"]["status"] == "COMPLETED"
         resume_payload = data["resume_markdown"]
         assert isinstance(resume_payload, dict)
         assert resume_payload["content"].strip()
