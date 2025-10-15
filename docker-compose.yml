@@ -27,7 +27,12 @@ services:
       db:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/neuro_resume
+      DATABASE_DRIVER: postgresql+asyncpg
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      DATABASE_NAME: neuro_resume
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: postgres
       JWT_SECRET: ${JWT_SECRET:-change_me}
       JWT_ALGORITHM: HS256
       JWT_EXPIRATION: 86400
