@@ -14,18 +14,18 @@ class Settings(BaseSettings):
     )
 
     # Database
-    database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/neuro_resume"
+    database_url: str = None
 
     # Application
-    app_env: str = "development"
-    debug: bool = True
-    log_level: str = "INFO"
+    app_env: str = None
+    debug: bool = None
+    log_level: str = None
 
     # API
-    api_v1_prefix: str = "/api/v1"
+    api_v1_prefix: str = None
 
     # CORS
-    cors_origins: str = "http://localhost:3000,http://localhost:8080"
+    cors_origins: str = None
 
     @property
     def cors_origins_list(self) -> list[str]:
@@ -33,13 +33,17 @@ class Settings(BaseSettings):
         return [origin.strip() for origin in self.cors_origins.split(",")]
 
     # JWT Authentication
-    jwt_secret: str = "your-secret-key-change-in-production"
-    jwt_algorithm: str = "HS256"
-    jwt_expiration: int = 86400  # 24 hours in seconds
+    jwt_secret: str = None
+    jwt_algorithm: str = None
+    jwt_expiration: int = None
 
     # MCP (Model Context Protocol)
     anthropic_api_key: str | None = None
     openai_api_key: str | None = None
+
+    # Gemini
+    gemini_api_key: str | None = None
+    gemini_model: str = None
 
 
 # Global settings instance

@@ -130,12 +130,19 @@ components:
           $ref: '#/components/schemas/MessageResponse'
         progress:
           $ref: '#/components/schemas/ProgressInfo'
+        session_status:
+          $ref: '#/components/schemas/SessionStatus'
+        resume_markdown:
+          anyOf:
+          - $ref: '#/components/schemas/ResumeMarkdownPayload'
+          - type: 'null'
         user_message:
           $ref: '#/components/schemas/MessageResponse'
       required:
       - user_message
       - ai_response
       - progress
+      - session_status
       title: SendMessageResponse
       type: object
     SessionCreate:
@@ -193,9 +200,9 @@ components:
     SessionStatus:
       description: Interview session status.
       enum:
-      - in_progress
-      - completed
-      - abandoned
+      - IN_PROGRESS
+      - COMPLETED
+      - ABANDONED
       title: SessionStatus
       type: string
     TokenResponse:

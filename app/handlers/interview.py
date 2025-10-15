@@ -15,11 +15,24 @@ from app.models.session import (CompleteSessionResponse, MessageCreate,
                                 ResumeMarkdownPayload, SendMessageResponse,
                                 SessionCreate, SessionResponse, SessionStatus)
 from app.repository.session import SessionRepository
+from app.services import GeminiInterviewService, get_gemini_service
 from app.utils.security import get_current_user_id
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/interview", tags=["interview"])
+
+
+def _coerce_status(value: object) -> SessionStatus:
+    """Convert persisted status value to SessionStatus enum."""
+
+    if isinstance(value, SessionStatus):
+        return value
+    try:
+        return SessionStatus(str(value))
+    except ValueError:
+        logger.warning("Unexpected session status value: %s", value)
+        return SessionStatus.IN_PROGRESS
 
 
 @router.get("/sessions")
@@ -204,6 +217,7 @@ async def send_message(
     message_data: MessageCreate,
     current_user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
+    gemini_service: GeminiInterviewService = Depends(get_gemini_service),
 ) -> SendMessageResponse:
     """Send message to interview and get AI response.
 
@@ -235,7 +249,7 @@ async def send_message(
         )
 
     # Check if session is still in progress
-    if session.status != SessionStatus.IN_PROGRESS:
+    if _coerce_status(session.status) != SessionStatus.IN_PROGRESS:
         logger.warning(
             f"Attempt to send message to non-active session: {session_id}")
         raise HTTPException(
@@ -244,35 +258,74 @@ async def send_message(
                               "message": "Session is not active"}},
         )
 
-    # Create user message
+    # Create user message first so conversation history includes the latest input
     from app.models.session import MessageRole
 
     user_message = await repo.create_message(
-        session_id=session_id, role=MessageRole.USER, content=message_data.content
+        session_id=session_id,
+        role=MessageRole.USER,
+        content=message_data.content,
     )
 
-    # TODO: Integrate with AI service (MCP) to generate response
-    # For now, return a placeholder AI response
-    ai_response_content = "Thank you for your response. This is a placeholder. AI integration will be implemented using MCP."
+    # Gather the latest conversation and ask Gemini for the next step
+    conversation = await repo.get_session_messages(session_id)
+    gemini_turn = await gemini_service.process_turn(
+        session_id=str(session_id),
+        messages=conversation,
+    )
 
+    ai_metadata = gemini_turn.metadata if gemini_turn.metadata else None
     ai_message = await repo.create_message(
-        session_id=session_id, role=MessageRole.AI, content=ai_response_content
+        session_id=session_id,
+        role=MessageRole.AI,
+        content=gemini_turn.ai_message,
     )
 
-    # Update progress using adaptive repository logic
-    await repo.advance_session_progress(session_id=session_id)
+    if ai_metadata is not None:
+        updated = await repo.update_message_metadata(ai_message.id, ai_metadata)
+        if updated:
+            ai_message = updated
 
-    # Get updated session for progress
-    updated_session = await repo.get_session_by_id(session_id)
-    progress_payload = updated_session.progress or {}
-    progress = ProgressInfo(**progress_payload)
+    resume_payload: Optional[ResumeMarkdownPayload] = None
+    if gemini_turn.completed:
+        completed_session = await repo.complete_session(
+            session_id,
+            resume_markdown=gemini_turn.resume_markdown,
+            resume_format="text/markdown",
+        )
+        session_progress = completed_session.progress or {"percentage": 100}
+        progress = ProgressInfo(**session_progress)
+        session_status = _coerce_status(completed_session.status)
 
-    logger.info(f"Processed message exchange in session: {session_id}")
+        resume_content = completed_session.resume_markdown or gemini_turn.resume_markdown or ""
+        resume_payload = ResumeMarkdownPayload(
+            content=resume_content,
+            mime_type=completed_session.resume_format or "text/markdown",
+            filename=f"{completed_session.id}.md",
+        )
+    else:
+        if gemini_turn.progress_state:
+            updated_session = await repo.update_progress_state(
+                session_id, gemini_turn.progress_state
+            )
+        else:
+            updated_session = await repo.advance_session_progress(session_id=session_id)
+
+        if not updated_session:
+            updated_session = await repo.get_session_by_id(session_id)
+
+        progress_payload = updated_session.progress or {"percentage": 0}
+        progress = ProgressInfo(**progress_payload)
+        session_status = _coerce_status(updated_session.status)
+
+    logger.info("Processed message exchange in session: %s", session_id)
 
     return SendMessageResponse(
         user_message=MessageResponse.model_validate(user_message),
         ai_response=MessageResponse.model_validate(ai_message),
         progress=progress,
+        session_status=session_status,
+        resume_markdown=resume_payload,
     )
 
 

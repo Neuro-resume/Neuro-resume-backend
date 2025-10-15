@@ -4,7 +4,7 @@ import logging
 import math
 import random
 import uuid
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -39,7 +39,7 @@ class SessionRepository:
         """
         session_obj = InterviewSession(
             user_id=user_id,
-            status=SessionStatus.IN_PROGRESS,
+            status=SessionStatus.IN_PROGRESS.value,
             progress={"percentage": 0},
             message_count=0,
             resume_content=None,
@@ -135,8 +135,14 @@ class SessionRepository:
             return None
 
         current_percentage = (session_obj.progress or {}).get("percentage", 0)
+        status_raw = session_obj.status
+        try:
+            status_enum = status_raw if isinstance(
+                status_raw, SessionStatus) else SessionStatus(status_raw)
+        except ValueError:
+            status_enum = SessionStatus.IN_PROGRESS
 
-        if force_complete or session_obj.status == SessionStatus.COMPLETED:
+        if force_complete or status_enum == SessionStatus.COMPLETED:
             new_percentage = 100
         else:
             message_pairs = max(session_obj.message_count // 2, 0)
@@ -161,7 +167,9 @@ class SessionRepository:
             new_percentage = max(min(new_percentage, 95),
                                  5 if message_pairs > 0 else 0)
 
-        session_obj.progress = {"percentage": new_percentage}
+        progress_state = dict(session_obj.progress or {})
+        progress_state["percentage"] = new_percentage
+        session_obj.progress = progress_state
         await self.session.commit()
         await self.session.refresh(session_obj)
         return session_obj
@@ -185,7 +193,7 @@ class SessionRepository:
         if not session_obj:
             return None
 
-        session_obj.status = SessionStatus.COMPLETED
+        session_obj.status = SessionStatus.COMPLETED.value
         from datetime import datetime
         session_obj.completed_at = datetime.utcnow()
         if resume_markdown is not None:
@@ -193,7 +201,9 @@ class SessionRepository:
             session_obj.resume_format = resume_format
 
         # Ensure progress reaches 100 for completed sessions.
-        session_obj.progress = {"percentage": 100}
+        progress_state = dict(session_obj.progress or {})
+        progress_state["percentage"] = 100
+        session_obj.progress = progress_state
 
         await self.session.commit()
         await self.session.refresh(session_obj)
@@ -238,8 +248,13 @@ class SessionRepository:
         Returns:
             Created message
         """
+        role_value = role.value if isinstance(role, MessageRole) else role
+
         message = Message(
-            session_id=session_id, role=role, content=content, message_metadata=message_metadata
+            session_id=session_id,
+            role=role_value,
+            content=content,
+            message_metadata=message_metadata,
         )
         self.session.add(message)
 
@@ -251,6 +266,20 @@ class SessionRepository:
         await self.session.commit()
         await self.session.refresh(message)
         return message
+
+    async def update_progress_state(
+        self, session_id: uuid.UUID, progress_state: Dict[str, Any]
+    ) -> Optional[InterviewSession]:
+        """Persist custom progress payload for a session."""
+
+        session_obj = await self.get_session_by_id(session_id)
+        if not session_obj:
+            return None
+
+        session_obj.progress = progress_state
+        await self.session.commit()
+        await self.session.refresh(session_obj)
+        return session_obj
 
     async def get_session_messages(
         self, session_id: uuid.UUID
@@ -270,3 +299,19 @@ class SessionRepository:
         )
         result = await self.session.execute(query)
         return list(result.scalars().all())
+
+    async def update_message_metadata(
+        self, message_id: uuid.UUID, metadata: Optional[dict]
+    ) -> Optional[Message]:
+        """Update metadata for a specific message."""
+
+        query = select(Message).where(Message.id == message_id)
+        result = await self.session.execute(query)
+        message = result.scalar_one_or_none()
+        if not message:
+            return None
+
+        message.message_metadata = metadata
+        await self.session.commit()
+        await self.session.refresh(message)
+        return message

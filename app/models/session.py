@@ -42,7 +42,7 @@ class InterviewSession(Base):
         "users.id"), nullable=False, index=True)
     status = Column(
         String(32),
-        default="in_progress",
+        default=SessionStatus.IN_PROGRESS.value,
         nullable=False,
         index=True,
     )
@@ -195,14 +195,6 @@ class MessageResponse(BaseModel):
         return value
 
 
-class SendMessageResponse(BaseModel):
-    """Response after sending a message."""
-
-    user_message: MessageResponse
-    ai_response: MessageResponse
-    progress: ProgressInfo
-
-
 class ResumeMarkdownPayload(BaseModel):
     """Metadata and content for generated markdown resume."""
 
@@ -216,6 +208,16 @@ class ResumeMarkdownPayload(BaseModel):
         default="resume.md",
         description="Suggested filename for downloading the generated resume",
     )
+
+
+class SendMessageResponse(BaseModel):
+    """Response after sending a message."""
+
+    user_message: MessageResponse
+    ai_response: MessageResponse
+    progress: ProgressInfo
+    session_status: SessionStatus
+    resume_markdown: Optional[ResumeMarkdownPayload] = None
 
 
 class CompleteSessionResponse(BaseModel):

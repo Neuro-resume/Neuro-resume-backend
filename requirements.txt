@@ -28,6 +28,9 @@ mypy==1.7.1
 anthropic==0.40.0
 openai==1.54.0
 
+# Generative AI
+google-genai>=0.3.0
+
 # Additional utilities
 python-dotenv==1.0.0
 python-multipart==0.0.6

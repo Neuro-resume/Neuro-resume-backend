@@ -124,6 +124,8 @@ class TestSessionMessages:
         data = response.json()
         assert "user_message" in data
         assert "ai_response" in data
+        assert "session_status" in data
+        assert "resume_markdown" in data
 
         # User message
         assert data["user_message"]["role"] == "user"
@@ -132,6 +134,8 @@ class TestSessionMessages:
         # AI response (placeholder for now)
         assert data["ai_response"]["role"] == "ai"
         assert len(data["ai_response"]["content"]) > 0
+        assert data["session_status"] == "IN_PROGRESS"
+        assert data["resume_markdown"] is None
 
         # Progress should advance but not hit 100 during conversation
         first_progress = data["progress"]["percentage"]
@@ -144,9 +148,12 @@ class TestSessionMessages:
             json={"content": "More details about my experience"},
         )
         assert response.status_code == 200
-        second_progress = response.json()["progress"]["percentage"]
+        second_response = response.json()
+        second_progress = second_response["progress"]["percentage"]
         assert second_progress >= first_progress
         assert second_progress < 100
+        assert second_response["session_status"] == "IN_PROGRESS"
+        assert second_response["resume_markdown"] is None
 
     async def test_send_message_to_nonexistent_session(self, client: AsyncClient, auth_headers):
         """Test sending message to non-existent session."""
