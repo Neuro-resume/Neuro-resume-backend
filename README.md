@@ -1,100 +1,119 @@
-# Neuro Resume Backend
+# NeuroResume
 
-AI-помощник для подготовки профессиональных резюме через интерактивное интервью.
+Сервис генерации профессиональных резюме через интерактивный диалог с AI. Главное отличие от аналогов — система сама задаёт вопросы пользователю, помогая структурировать информацию о профессиональном опыте.
 
-## Возможности
+## Как это работает
 
--   Регистрация и аутентификация пользователей (JWT)
--   Управление профилем и смена пароля
--   Создание и ведение интервью-сессий с вопросами от нейросети
--   Хранение переписки (сообщений) в рамках сессии
--   Формирование резюме из ответов, хранение нескольких версий
--   REST API c OpenAPI спецификацией
+1. Пользователь регистрируется и создаёт сессию интервью
+2. AI задаёт структурированные вопросы о карьере, навыках и опыте
+3. На основе ответов формируется профессиональное резюме в формате Markdown
+4. Резюме можно редактировать и сохранять несколько версий
 
-## Стек
+## Технологии
 
--   Python 3.11+
--   FastAPI
--   SQLAlchemy (async) + PostgreSQL
--   Alembic для миграций
--   Pytest для тестов
+| Компонент | Стек |
+|-----------|------|
+| Backend | Python 3.11+, FastAPI, SQLAlchemy, PostgreSQL, Alembic |
+| Frontend | React 18, TypeScript, Vite, TailwindCSS |
+| AI | Google Gemini API |
+| Инфраструктура | Docker, Docker Compose |
+
+## Требования
+
+- Docker и Docker Compose
+- Node.js >= 18.0.0
+- npm >= 9.0.0
 
 ## Быстрый старт
 
+### Запуск всего проекта одной командой
+
 ```bash
-git clone https://github.com/Neuro-resume/neuro-resume-backend.git
-cd neuro-resume-backend
-make venv
-source .venv/bin/activate
-pip install -r requirements.txt
-alembic upgrade head
-uvicorn app.main:app --reload
+chmod +x start.sh
+./start.sh
 ```
 
-## Docker
+Скрипт запустит backend (Docker) и frontend (Vite dev-server).
+
+### Ручной запуск
+
+**Backend:**
 
 ```bash
+cd Neuro-resume-backend
 docker compose up --build
 ```
 
--   Сервис `db` поднимает PostgreSQL и автоматически инициализирует схему.
--   Сервис `backend` применяет Alembic миграции и стартует FastAPI на `http://localhost:8000`.
--   Настройте переменные через `.env` или переопределите значения (`JWT_SECRET`, `CORS_ORIGINS`, и т.д.).
+Backend доступен на `http://localhost:8000`
 
-## Makefile задачи
+**Frontend:**
 
 ```bash
-make venv        # создаёт виртуальное окружение .venv
-make activate    # открывает shell с активированным окружением
-make run         # запускает API (python app/main.py)
-make tests       # pytest
-make api-tests   # e2e smoke-тесты (scripts/test_api.sh)
+cd Neuro-resume-frontend
+npm install
+cp .env.example .env  # настройте переменные окружения
+npm run dev
 ```
 
-## Скрипты
+Frontend доступен на `http://localhost:3000`
 
--   `scripts/test_api.sh` — e2e smoke-тесты API
--   `scripts/migrate.sh` — управление миграциями
--   `scripts/setup_database.sh` — подготовка базы
+## Структура проекта
 
-## API документация
+```
+NeuroResume/
+├── Neuro-resume-backend/    # FastAPI приложение
+│   ├── app/                 # Исходный код
+│   │   ├── handlers/        # API эндпоинты
+│   │   ├── models/          # SQLAlchemy модели
+│   │   ├── repository/      # Слой работы с БД
+│   │   └── services/        # Бизнес-логика (Gemini API)
+│   ├── migrations/          # Alembic миграции
+│   └── docker-compose.yml
+│
+├── Neuro-resume-frontend/   # React приложение
+│   ├── src/
+│   │   ├── components/      # UI компоненты
+│   │   ├── pages/           # Страницы
+│   │   ├── services/        # API клиент
+│   │   └── contexts/        # React контексты (auth)
+│   └── package.json
+│
+├── README.md                # Этот файл
+└── start.sh                 # Скрипт запуска проекта
+```
 
--   OpenAPI: `openapi.yaml`
--   Ручки подробно: `API_HANDLERS.md`
--   Postman-коллекция: `api/neuro-resume.postman_collection.json`
+## API
+
+- OpenAPI спецификация: `Neuro-resume-backend/openapi.yaml`
+- Postman коллекция: `Neuro-resume-backend/api/neuro-resume.postman_collection.json`
+- Swagger UI: `http://localhost:8000/docs` (после запуска backend)
 
 ### Основные эндпоинты
 
--   `/v1/auth/*` — аутентификация
--   `/v1/user/*` — профиль
--   `/v1/interview/*` — интервью-сессии, сообщения и markdown-резюме
+| Метод | Путь | Описание |
+|-------|------|----------|
+| POST | `/v1/auth/register` | Регистрация |
+| POST | `/v1/auth/login` | Авторизация |
+| GET | `/v1/user/me` | Профиль пользователя |
+| POST | `/v1/interview/sessions` | Создать сессию интервью |
+| POST | `/v1/interview/sessions/{id}/messages` | Отправить ответ |
+| GET | `/v1/interview/sessions/{id}/resume` | Получить резюме |
 
-## Тестирование
+## Разработка
+
+### Backend тесты
 
 ```bash
-make tests       # unit/integration tests
-make api-tests   # энд-ту-энд сценарий
+cd Neuro-resume-backend
+make tests       # unit/integration
+make api-tests   # e2e
 ```
 
-## Переменные окружения
+### Frontend линтинг
 
-Создайте `.env` на основе `.env.example`:
-
-```
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/neuro_resume
-JWT_SECRET=change_me
-JWT_ALGORITHM=HS256
-JWT_EXPIRATION=86400
-LOG_LEVEL=INFO
+```bash
+cd Neuro-resume-frontend
+npm run lint
+npm run type-check
 ```
 
-## Контрибьюторам
-
-1. Перед коммитом запускайте `make tests`
-2. Соблюдайте стиль (black, flake8, mypy)
-3. Миграции: `alembic revision --autogenerate -m "message"`
-4. Pull Request с описанием изменений и покрытием тестами
-
-## Лицензия
-
-MIT License
