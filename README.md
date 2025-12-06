@@ -15,7 +15,6 @@
 |-----------|------|
 | Backend | Python 3.11+, FastAPI, SQLAlchemy, PostgreSQL, Alembic |
 | Frontend | React 18, TypeScript, Vite, TailwindCSS |
-| AI | Google Gemini API |
 | Инфраструктура | Docker, Docker Compose |
 
 ## Требования
@@ -66,7 +65,7 @@ NeuroResume/
 │   │   ├── handlers/        # API эндпоинты
 │   │   ├── models/          # SQLAlchemy модели
 │   │   ├── repository/      # Слой работы с БД
-│   │   └── services/        # Бизнес-логика (Gemini API)
+│   │   └── services/        # Бизнес-логика
 │   ├── migrations/          # Alembic миграции
 │   └── docker-compose.yml
 │
